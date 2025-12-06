@@ -52,3 +52,4 @@ frontend/.env.production.local
 backend/dptb_agent_tools/env.json
 chat_history/
 /tmp/
+temp/
