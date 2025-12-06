@@ -343,7 +343,7 @@ async def modify_parameters(request: ModifyParamsRequest):
 @app.get("/api/files/{session_id}")
 async def list_files(session_id: str):
     """获取会话文件列表"""
-    session_dir = os.path.join(work_path, session_id)
+    session_dir = os.path.join(work_path, session_id, "files")
     print(f"Listing files from: {session_dir}")
     os.makedirs(session_dir, exist_ok=True)
 
@@ -366,7 +366,7 @@ async def list_files(session_id: str):
 @app.post("/api/upload/{session_id}")
 async def upload_file(session_id: str, files: List[UploadFile] = File(...)):
     """上传文件到会话目录"""
-    session_dir = os.path.join(work_path, session_id)
+    session_dir = os.path.join(work_path, session_id, "files")
     os.makedirs(session_dir, exist_ok=True)
 
     uploaded_files = []
@@ -393,7 +393,7 @@ async def upload_file(session_id: str, files: List[UploadFile] = File(...)):
 @app.get("/api/download/{session_id}/{filename}")
 async def download_file(session_id: str, filename: str):
     """下载文件"""
-    file_path = os.path.join(work_path, session_id, filename)
+    file_path = os.path.join(work_path, session_id, "files", filename)
 
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="文件不存在")
