@@ -1,0 +1,179 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  margin: 0 auto;
+  text-align: center;
+  width: 100%;
+  height: 100vh;
+}
+
+.App {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 聊天消息样式 */
+.chat-message {
+  margin: 8px 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  max-width: 80%;
+  word-wrap: break-word;
+}
+
+.chat-message.user {
+  background-color: #1677ff;
+  color: white;
+  margin-left: auto;
+  text-align: left;
+}
+
+.chat-message.assistant {
+  background-color: #f5f5f5;
+  color: #333;
+  margin-right: auto;
+  text-align: left;
+  border: 1px solid #e8e8e8;
+}
+
+.chat-message pre {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.chat-message code {
+  background-color: #f6f8fa;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.chat-message pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* 文件列表样式 */
+.file-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.file-item:last-child {
+  border-bottom: none;
+}
+
+.file-info {
+  flex: 1;
+  text-align: left;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #262626;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #8c8c8c;
+}
+
+/* 参数修改面板样式 */
+.param-panel {
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.param-item {
+  margin-bottom: 16px;
+}
+
+.param-label {
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.param-description {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-bottom: 8px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .chat-message {
+    max-width: 95%;
+  }
+
+  .file-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .file-actions {
+    margin-top: 8px;
+  }
+}

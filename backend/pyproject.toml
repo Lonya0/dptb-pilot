@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dptb_pilot_backend"
+dynamic = ["version"]
+description = "Unified backend for dptb-pilot"
+requires-python = ">=3.10"
+dependencies = [
+    "LiteLlm",
+    "google-adk",
+    "gradio",
+    "mcp>=1.9.0",
+    "bohr-agent-sdk"
+]
+
+[project.scripts]
+baim = "better_aim.main:main"
+dtat = "dptb_agent_tools.main:main"
+
+[tool.setuptools]
+package-dir = { "" = "." }
+
+[tool.setuptools_scm]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["better_aim*", "dptb_agent_tools*"]
+exclude = ["tests*", "docs*", "examples*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-v"
