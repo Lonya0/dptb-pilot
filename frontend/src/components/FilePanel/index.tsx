@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   Button,
-  Upload,
   List,
   Typography,
   message,
@@ -14,16 +13,13 @@ import {
   DownloadOutlined,
   DeleteOutlined,
   ReloadOutlined,
-  FileOutlined,
-  InboxOutlined
+  FileOutlined
 } from '@ant-design/icons';
-import type { UploadProps } from 'antd';
 
 import { useApp } from '../../contexts/AppContext';
 import type { FileInfo } from '../../types';
 
 const { Title, Text } = Typography;
-const { Dragger } = Upload;
 
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -35,34 +31,7 @@ function formatFileSize(bytes: number): string {
 
 function FilePanel() {
   const { state, actions } = useApp();
-  const [uploading, setUploading] = useState(false);
   // const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleUpload: UploadProps['beforeUpload'] = async (file) => {
-    if (!state.userId) {
-      message.error('请先登录');
-      return false;
-    }
-
-    // 检查文件大小 (10MB限制)
-    if (file.size > 10 * 1024 * 1024) {
-      message.error('文件大小不能超过10MB');
-      return false;
-    }
-
-    setUploading(true);
-    try {
-      await actions.uploadFiles([file]);
-      message.success('文件上传成功');
-    } catch (error) {
-      message.error('文件上传失败');
-      console.error('Upload error:', error);
-    } finally {
-      setUploading(false);
-    }
-
-    return false; // 阻止默认上传行为
-  };
 
   const handleDownload = (file: FileInfo) => {
     if (!state.userId) return;
@@ -92,13 +61,7 @@ function FilePanel() {
     }
   };
 
-  const uploadProps: UploadProps = {
-    name: 'files',
-    multiple: true,
-    beforeUpload: handleUpload,
-    showUploadList: false,
-    disabled: uploading || !state.isAuthenticated
-  };
+
 
   return (
     <div>
@@ -120,20 +83,6 @@ function FilePanel() {
         工作目录: /tmp/{state.userId}
       </Text>
 
-      <Card size="small" style={{ marginBottom: '16px' }}>
-        <Dragger {...uploadProps} style={{ padding: '16px' }}>
-          <p className="ant-upload-drag-icon">
-            <InboxOutlined style={{ fontSize: '32px', color: '#1677ff' }} />
-          </p>
-          <p className="ant-upload-text">
-            点击或拖拽文件到此区域上传
-          </p>
-          <p className="ant-upload-hint">
-            支持单个或批量上传，文件大小不超过10MB
-          </p>
-        </Dragger>
-      </Card>
-
       {state.loading ? (
         <div style={{ textAlign: 'center', padding: '20px' }}>
           <Spin />
@@ -144,10 +93,10 @@ function FilePanel() {
           size="small"
           styles={{ body: { padding: '0' } }}
         >
-          {state.currentChatSession?.files && state.currentChatSession.files.length > 0 ? (
+          {state.files && state.files.length > 0 ? (
             <List
               size="small"
-              dataSource={state.currentChatSession.files}
+              dataSource={state.files}
               renderItem={(file: FileInfo) => (
                 <List.Item
                   style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0' }}

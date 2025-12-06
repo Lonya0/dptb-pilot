@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Input, Button, Typography, Form, Alert, Spin, Space, Divider } from 'antd';
-import { UserOutlined, KeyOutlined, ReloadOutlined, RobotOutlined } from '@ant-design/icons';
+import { UserOutlined, KeyOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useApp } from '../../contexts/AppContext';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Paragraph } = Typography;
 
 function generateRandomString(length = 32): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -29,9 +29,15 @@ function Login() {
   }, [state.isAuthenticated, navigate]);
 
   useEffect(() => {
-    // 初始化为空，不自动生成ID
-    setSessionId('');
-    form.setFieldsValue({ session_id: '' });
+    // 尝试从本地存储加载上次的会话ID
+    const savedSessionId = localStorage.getItem('last_session_id');
+    if (savedSessionId) {
+      setSessionId(savedSessionId);
+      form.setFieldsValue({ session_id: savedSessionId });
+    } else {
+      setSessionId('');
+      form.setFieldsValue({ session_id: '' });
+    }
   }, [form]);
 
   const handleGenerateRandom = () => {
@@ -46,6 +52,8 @@ function Login() {
     }
 
     try {
+      // 保存到本地存储
+      localStorage.setItem('last_session_id', values.session_id);
       await actions.login(values.session_id);
       navigate('/chat');
     } catch (error) {
@@ -81,29 +89,38 @@ function Login() {
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: 'linear-gradient(135deg, #250D59 0%, #4300D8 100%)', // DeePTB Brand Colors
       padding: '20px'
     }}>
       <Card
         style={{
           width: '100%',
-          maxWidth: 500,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-          borderRadius: '12px'
+          maxWidth: 480,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+          borderRadius: '16px',
+          border: 'none'
         }}
-        bodyStyle={{ padding: '32px' }}
+        bodyStyle={{ padding: '48px 40px' }}
       >
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <RobotOutlined style={{ fontSize: '48px', color: '#1677ff', marginBottom: '16px' }} />
-          <Title level={2} style={{ margin: '0', color: '#262626' }}>
-            Better AIM
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <img 
+            src="/logo.svg" 
+            alt="DeePTB Logo" 
+            style={{ 
+              height: '64px', 
+              marginBottom: '24px',
+              maxWidth: '100%'
+            }} 
+          />
+          <Title level={2} style={{ margin: '0', color: '#001529', fontWeight: 'bold', fontSize: '28px' }}>
+            DeePTB Pilot
           </Title>
-          <Paragraph style={{ color: '#8c8c8c', margin: '8px 0' }}>
-            AI Agent 交互平台
+          <Paragraph style={{ color: '#595959', margin: '8px 0', fontSize: '16px' }}>
+            AI Agent for DeePTB
           </Paragraph>
         </div>
 
-        <Divider>创建会话</Divider>
+        <Divider style={{ margin: '24px 0' }}>创建会话</Divider>
 
         {state.error && (
           <Alert
@@ -168,17 +185,7 @@ function Login() {
           </Form.Item>
         </Form>
 
-        {state.config && (
-          <div style={{ marginTop: '24px', padding: '16px', background: '#f5f5f5', borderRadius: '8px' }}>
-            <Text strong>当前服务信息：</Text>
-            <div style={{ marginTop: '8px' }}>
-              <div style={{ fontSize: '14px', color: '#666' }}>
-                <div>Agent: {state.config.agent_info.name}</div>
-                <div>描述: {state.config.agent_info.description}</div>
-              </div>
-            </div>
-          </div>
-        )}
+
       </Card>
     </div>
   );

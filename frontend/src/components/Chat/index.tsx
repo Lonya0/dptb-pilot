@@ -11,7 +11,8 @@ import {
   Spin,
   Divider,
   Alert,
-  Tooltip
+  Tooltip,
+  Upload
 } from 'antd';
 import {
   SendOutlined,
@@ -19,7 +20,8 @@ import {
   LogoutOutlined,
   MessageOutlined,
   UserOutlined,
-  RobotOutlined
+  RobotOutlined,
+  PaperClipOutlined
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 // import Prism from 'prismjs';
@@ -141,6 +143,34 @@ function Chat() {
   const handleLogout = () => {
     actions.logout();
     navigate('/login');
+  };
+
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (file: File) => {
+    if (!state.userId) {
+      message.error('请先登录');
+      return false;
+    }
+
+    // 检查文件大小 (10MB限制)
+    if (file.size > 10 * 1024 * 1024) {
+      message.error('文件大小不能超过10MB');
+      return false;
+    }
+
+    setUploading(true);
+    try {
+      await actions.uploadFiles([file]);
+      message.success(`文件 ${file.name} 上传成功`);
+    } catch (error) {
+      message.error(`文件 ${file.name} 上传失败`);
+      console.error('Upload error:', error);
+    } finally {
+      setUploading(false);
+    }
+
+    return false; // 阻止默认上传行为
   };
 
   const formatMessage = (content: string) => {
@@ -361,7 +391,21 @@ function Chat() {
         </Sider>
 
         <Content style={{ display: 'flex' }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div 
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const files = Array.from(e.dataTransfer.files);
+              if (files.length > 0) {
+                files.forEach(file => handleUpload(file));
+              }
+            }}
+          >
             <div
               ref={chatContainerRef}
               style={{
@@ -404,13 +448,36 @@ function Chat() {
                 />
               </Space.Compact>
 
-              <Space.Compact style={{ width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+                <Upload
+                  beforeUpload={handleUpload}
+                  showUploadList={false}
+                  multiple
+                  disabled={uploading || state.loading}
+                >
+                  <Button 
+                    icon={<PaperClipOutlined />} 
+                    loading={uploading}
+                    size="large"
+                    type="text"
+                    style={{ marginBottom: '4px' }}
+                  />
+                </Upload>
                 <TextArea
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={`输入你想对 ${state.config?.agent_info.name} 说的话...`}
-                  autoSize={{ minRows: 1, maxRows: 4 }}
+                  onPaste={(e) => {
+                    const items = e.clipboardData.items;
+                    for (let i = 0; i < items.length; i++) {
+                      if (items[i].kind === 'file') {
+                        const file = items[i].getAsFile();
+                        if (file) handleUpload(file);
+                      }
+                    }
+                  }}
+                  placeholder={`输入你想对 ${state.config?.agent_info.name} 说的话... (支持粘贴/拖拽文件)`}
+                  autoSize={{ minRows: 1, maxRows: 6 }}
                   style={{ flex: 1, resize: 'none' }}
                   disabled={state.responding || state.loading}
                 />
@@ -420,11 +487,12 @@ function Chat() {
                   onClick={handleSendMessage}
                   loading={state.responding || state.loading}
                   disabled={!inputValue.trim()}
-                  style={{ height: 'auto', minHeight: '32px' }}
+                  size="large"
+                  style={{ marginBottom: '4px' }}
                 >
                   发送
                 </Button>
-              </Space.Compact>
+              </div>
             </div>
           </div>
 

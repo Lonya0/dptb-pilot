@@ -87,7 +87,6 @@ export interface CurrentChatSession {
   user_id: string;
   title: string;
   history: ChatMessage[];
-  files: FileInfo[]; // 用户文件列表
 }
 
 // MCP工具执行模式
@@ -102,6 +101,7 @@ export interface AppState {
   userId: string; // 32位用户会话ID
   currentChatSession: CurrentChatSession | null;
   chatSessions: ChatSession[]; // 当前用户的所有聊天会话
+  files: FileInfo[]; // 用户文件列表 (全局)
   config: AppConfig | null;
   executionMode: ExecutionMode;
   modifyMode: ModifyMode;

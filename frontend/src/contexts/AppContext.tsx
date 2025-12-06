@@ -26,6 +26,7 @@ const initialState: AppState = {
   userId: '',
   currentChatSession: null,
   chatSessions: [],
+  files: [],
   config: null,
   executionMode: 'Local',
   modifyMode: 'individual',
@@ -76,7 +77,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
           user_id: action.payload.user_id,
           title: action.payload.title,
           history: action.payload.history,
-          files: state.currentChatSession?.files || [],
         }
       };
 
@@ -100,13 +100,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
 
     case 'UPDATE_FILES':
-      if (!state.currentChatSession) return state;
       return {
         ...state,
-        currentChatSession: {
-          ...state.currentChatSession,
-          files: action.payload,
-        },
+        files: action.payload,
       };
 
     case 'SET_EXECUTION_MODE':
@@ -311,13 +307,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!targetUserId) return;
 
       const chatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = (now.getMonth() + 1).toString().padStart(2, '0');
+      const day = now.getDate().toString().padStart(2, '0');
+      const hour = now.getHours().toString().padStart(2, '0');
+      const minute = now.getMinutes().toString().padStart(2, '0');
+      const timeString = `${year}-${month}-${day} ${hour}:${minute}`;
+      
       const newChatSession: ChatSession = {
         chat_id: chatId,
         user_id: targetUserId,
-        title: `${state.config?.agent_info?.name || 'AI Agent'} - 新对话`,
+        title: timeString,
         history: [],
-        created_at: new Date().toISOString(),
-        last_active: new Date().toISOString(),
+        created_at: now.toISOString(),
+        last_active: now.toISOString(),
         message_count: 0,
       };
 
@@ -390,7 +394,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
               user_id: targetSession.user_id,
               title: targetSession.title,
               history: targetSession.history,
-              files: state.currentChatSession?.files || [],
             };
             dispatch({ type: 'SET_CURRENT_CHAT_SESSION', payload: currentChatSession });
           }

@@ -338,18 +338,22 @@ async def modify_parameters(request: ModifyParamsRequest):
 async def list_files(session_id: str):
     """获取会话文件列表"""
     session_dir = os.path.join(work_path, session_id)
+    print(f"Listing files from: {session_dir}")
     os.makedirs(session_dir, exist_ok=True)
 
     files = []
-    for filename in os.listdir(session_dir):
-        file_path = os.path.join(session_dir, filename)
-        if os.path.isfile(file_path):
-            files.append({
-                "name": filename,
-                "path": file_path,
-                "size": os.path.getsize(file_path)
-            })
-
+    if os.path.exists(session_dir):
+        for filename in os.listdir(session_dir):
+            file_path = os.path.join(session_dir, filename)
+            if os.path.isfile(file_path):
+                stats = os.stat(file_path)
+                files.append({
+                    "name": filename,
+                    "path": file_path,
+                    "size": stats.st_size,
+                    "updated_at": stats.st_mtime
+                })
+    print(f"Found {len(files)} files")
     return {"files": sorted(files, key=lambda x: x["name"])}
 
 
