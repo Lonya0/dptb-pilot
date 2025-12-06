@@ -285,10 +285,27 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                 continue
 
             response_text = ""
-            async for response in call_agent_async(user_message, runner, session_id[:4], session_id):
-                if response["type"] in ["streaming_response", "final_response"]:
-                    response_text += (response.get("content") or "")
-                    await websocket.send_text(json.dumps(response))
+            try:
+                async for response in call_agent_async(user_message, runner, session_id[:4], session_id):
+                    if response["type"] in ["streaming_response", "final_response"]:
+                        response_text += (response.get("content") or "")
+                        
+                        # Check for usage metadata
+                        if "usage" in response:
+                             # Send usage info to frontend
+                             await websocket.send_text(json.dumps({
+                                 "type": "usage_update",
+                                 "usage": response["usage"]
+                             }))
+                             
+                        await websocket.send_text(json.dumps(response))
+            except Exception as e:
+                print(f"Error during agent execution: {e}")
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "message": f"Agent execution error: {str(e)}. Please try again."
+                }))
+                continue
 
             # 更新聊天历史
             history = history_pool[session_id]

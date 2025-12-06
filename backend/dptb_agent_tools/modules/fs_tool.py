@@ -41,12 +41,17 @@ def list_directory(path: str) -> str:
         return f"Error listing directory: {str(e)}"
 
 @mcp.tool()
-def read_file_content(path: str) -> str:
+def read_file_content(path: str, max_length: int = 20000) -> str:
     """
     Read the content of a file. Supports text files and PDFs.
     
+    IMPORTANT: 
+    - Do NOT use this tool to "explore". Use `search_knowledge_base` or `list_directory` first to find the right file.
+    - Only read files that you are sure are relevant.
+    
     Args:
         path: The absolute or relative path to the file.
+        max_length: Maximum number of characters to read (default: 20000).
         
     Returns:
         The content of the file, or an error message.
@@ -62,6 +67,7 @@ def read_file_content(path: str) -> str:
         if os.path.isdir(path):
             return f"Error: '{path}' is a directory. Use list_directory instead."
             
+        content = ""
         if path.endswith(".pdf"):
             try:
                 reader = pypdf.PdfReader(path)
@@ -70,17 +76,22 @@ def read_file_content(path: str) -> str:
                     text = page.extract_text()
                     if text:
                         content += f"\n--- Page {i+1} ---\n{text}"
-                return content
+                    if len(content) > max_length:
+                        break
             except Exception as e:
                 return f"Error reading PDF file: {str(e)}"
         else:
             try:
                 with open(path, "r", encoding="utf-8") as f:
-                    return f.read()
+                    content = f.read()
             except UnicodeDecodeError:
                 return "Error: File content is not valid UTF-8 text."
             except Exception as e:
                 return f"Error reading text file: {str(e)}"
+        
+        if len(content) > max_length:
+            return content[:max_length] + f"\n\n... (Content truncated at {max_length} characters. Use 'start_line' or specific sections to read more.)"
+        return content
                 
     except Exception as e:
         return f"Error accessing file: {str(e)}"
