@@ -17,43 +17,43 @@ def parse_arguments():
     parser.add_argument(
         "--port", "-p",
         type=int,
-        default=8000,
+        default=int(os.getenv("PORT", 8000)),
         help="后端API服务器端口号 (默认: 8000)"
     )
 
     parser.add_argument(
         "--host", "-l",
         type=str,
-        default="0.0.0.0",
+        default=os.getenv("HOST", "0.0.0.0"),
         help="后端API服务器主机地址 (默认: 0.0.0.0)"
     )
 
     parser.add_argument(
         "--frontend-port", "-fp",
         type=int,
-        default=50001,
+        default=int(os.getenv("FRONTEND_PORT", 50001)),
         help="前端开发服务器端口号 (默认: 50001)"
     )
 
     parser.add_argument(
         "--frontend-host",
         type=str,
-        default="0.0.0.0",
+        default=os.getenv("FRONTEND_HOST", "0.0.0.0"),
         help="前端开发服务器主机地址 (默认: 0.0.0.0)"
     )
 
     parser.add_argument(
         "--backend-host",
         type=str,
-        default="localhost",
+        default=os.getenv("BACKEND_HOST", "localhost"),
         help="后端API服务器主机地址 (前端代理用) (默认: localhost)"
     )
 
     parser.add_argument(
         "--mcp_tools",
         type=str,
-        default="http://0.0.0.0:50001/sse",
-        help="MCP工具服务器链接 (默认: http://0.0.0.0:50001/sse)"
+        default=os.getenv("MCP_TOOLS_URL", "http://localhost:50002/sse"),
+        help="MCP工具服务器链接 (默认: http://localhost:50002/sse)"
     )
 
     parser.add_argument(
@@ -289,9 +289,9 @@ Help users perform DeePTB tasks including training config file generation, submi
     }
 
     default_model_config = {
-        'model': "openai/qwen3-max",
-        'api_base': "https://llm.dp.tech",
-        'api_key': os.getenv("API_KEY")
+        'model': os.getenv("LLM_MODEL", "openai/qwen3-max"),
+        'api_base': os.getenv("LLM_API_BASE", "https://llm.dp.tech"),
+        'api_key': os.getenv("LLM_API_KEY") or os.getenv("API_KEY")
     }
 
     default_tools_modify = ["band_with_baseline_model"]

@@ -9,6 +9,24 @@ DPTB Pilot 是一个集成了 AI Agent 和 DeePTB 工具的智能辅助系统。
     *   `better_aim/`: 主应用逻辑和 API 服务
     *   `dptb_agent_tools/`: MCP 工具集合
 
+## 配置
+
+```env
+# LLM Configuration
+LLM_MODEL=XXX
+LLM_API_BASE= XXX
+LLM_API_KEY=your_actual_api_key_here
+
+# Server Configuration
+HOST=0.0.0.0
+PORT=8000
+FRONTEND_HOST=0.0.0.0
+FRONTEND_PORT=50001
+BACKEND_HOST=localhost
+MCP_TOOLS_PORT=50002
+MCP_TOOLS_URL=http://localhost:${MCP_TOOLS_PORT}/sse
+```
+
 ## 快速开始
 
 要运行整个系统，你需要打开两个终端窗口，分别启动 **MCP 工具服务** 和 **主应用**。
@@ -31,7 +49,7 @@ source /Users/aisiqg/Software/venv/pybaim/bin/activate
 export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
 
 # 3. 启动服务
-python backend/dptb_agent_tools/main.py --port 50002
+python backend/dptb_agent_tools/main.py
 ```
 
 启动成功后，你会看到类似 `Uvicorn running on http://localhost:50002` 的日志。
@@ -47,11 +65,27 @@ source /Users/aisiqg/Software/venv/pybaim/bin/activate
 # 2. 设置 PYTHONPATH
 export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
 
-# 3. 启动主应用 (指向刚才启动的 MCP 工具服务)
-python backend/better_aim/react_main.py --mcp_tools http://0.0.0.0:50002/sse
+# 3. 启动主应用
+python backend/better_aim/react_main.py
 ```
 
 启动成功后，会自动尝试打开浏览器。
+
+## 注意事项
+
+### 代理设置 (VPN)
+
+如果您开启了 VPN 或系统代理，可能会导致无法连接到 `localhost` 或 `127.0.0.1`。此时请设置 `NO_PROXY` 环境变量：
+
+```bash
+export NO_PROXY="localhost,127.0.0.1"
+```
+
+或者在启动命令前加上：
+
+```bash
+NO_PROXY="localhost,127.0.0.1" python backend/better_aim/react_main.py
+```
 
 ## 访问地址
 

@@ -2,6 +2,7 @@ from pathlib import Path
 import importlib
 import os
 import argparse
+from dotenv import load_dotenv
 
 from importlib.metadata import version
 __version__ = version("dptb_agent_tools")
@@ -47,7 +48,7 @@ def parse_args():
     parser.add_argument(
         "--port",
         type=int,
-        default=None,
+        default=int(os.getenv("MCP_TOOLS_PORT", 50001)),
         help="Port to run the MCP server on (default: 50001)"
     )
     parser.add_argument(
@@ -86,6 +87,7 @@ def main():
     Main function to run the MCP tool.
     """
     print_version()
+    load_dotenv()
     args = parse_args()  
     
     from dptb_agent_tools.env import set_envs, create_workpath
