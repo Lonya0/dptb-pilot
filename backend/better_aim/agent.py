@@ -19,12 +19,9 @@ def create_llm_agent(session_id: str, mcp_tools_url: str, agent_info: dict, mode
     """根据用户信息创建LlmAgent"""
 
     instruction = agent_info['instruction']
-    try:
-        if "{session_id}" in instruction:
-            instruction = instruction.format(session_id=session_id)
-    except Exception as e:
-        print(f"Warning: Failed to format instruction with session_id: {e}")
-        # Fallback: replace manually to avoid KeyError on other braces
+    instruction = agent_info['instruction']
+    if "{session_id}" in instruction:
+        # Use replace instead of format to avoid issues with other braces (e.g. JSON or LaTeX)
         instruction = instruction.replace("{session_id}", session_id)
 
     agent = LlmAgent(

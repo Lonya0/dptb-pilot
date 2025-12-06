@@ -4,6 +4,7 @@ import os
 import uuid
 from typing import Dict, List, Optional, Any, AsyncGenerator
 from pathlib import Path
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,40 +82,17 @@ class LoginRequest(BaseModel):
 class ChatMessage(BaseModel):
     message: str
     session_id: str
+    chat_id: Optional[str] = None
 
 class ModifyParamsRequest(BaseModel):
     session_id: str
     modified_schema: Dict[str, Any]
 
 
-# 辅助函数
-def get_chat_history_file_path(sha_id: str, work_path: str) -> str:
-    """获取聊天历史文件路径"""
-    history_file_path = os.path.join(work_path, "chat_history")
-    os.makedirs(history_file_path, exist_ok=True)
-    return os.path.join(history_file_path, f"{sha_id}.json")
-
-
-def load_chat_history(sha_id: str, work_path: str) -> List[List[str]]:
-    """加载聊天历史记录"""
-    history_file = get_chat_history_file_path(sha_id, work_path)
-    if os.path.exists(history_file):
-        try:
-            with open(history_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return []
-    return []
-
-
-def save_chat_history(sha_id: str, history: List[List[str]], work_path: str):
-    """保存聊天历史记录"""
-    history_file = get_chat_history_file_path(sha_id, work_path)
-    try:
-        with open(history_file, 'w', encoding='utf-8') as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"保存聊天历史失败: {e}")
+# 辅助函数 - 历史记录管理已合并到 sessions.json
+# def get_chat_history_file_path... (removed)
+# def load_chat_history... (removed)
+# def save_chat_history... (removed)
 
 
 async def call_agent_async(query: str, runner: Runner, user_id: str, session_id: str) -> AsyncGenerator[Dict[str, Any], None]:
@@ -205,8 +183,9 @@ async def login(request: LoginRequest):
             raise HTTPException(status_code=500, detail=f"创建Agent失败: {str(e)}")
 
     # 初始化聊天历史
-    if session_id not in history_pool:
-        history_pool[session_id] = load_chat_history(session_id, work_path)
+    # 初始化聊天历史 - 已移除，现在按需加载 (lazy load by chat_id)
+    # if session_id not in history_pool:
+    #     history_pool[session_id] = load_chat_history(session_id, work_path)
 
     print(f"登录成功，会话ID: {session_id}")
     return {"message": "登录成功", "session_id": session_id}
@@ -238,10 +217,23 @@ async def chat_with_agent(message: ChatMessage):
     async for response in call_agent_async(user_message, runner, session_id[:4], session_id):
         full_response += response.get("content", "")
 
+    chat_id = message.chat_id
+    
+    # 确保 chat_id 存在
+    if not chat_id:
+        chat_id = session_id
+        print(f"WARNING: No chat_id provided in HTTP request, falling back to user_id: {chat_id}")
+
+    # 懒加载聊天历史
+    if chat_id not in history_pool:
+        history_pool[chat_id] = load_session_history(session_id, chat_id, work_path)
+
     # 更新聊天历史
-    history = history_pool[session_id]
+    history = history_pool[chat_id]
     history.append([user_message, full_response])
-    save_chat_history(session_id, history, work_path)
+    
+    # 同步更新 sessions.json
+    update_session_history(session_id, chat_id, history, work_path)
 
     return {"response": full_response, "is_final": True}
 
@@ -276,6 +268,8 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
             data = await websocket.receive_text()
             message_data = json.loads(data)
             user_message = message_data.get("message", "")
+            chat_id = message_data.get("chat_id")
+            print(f"DEBUG: WebSocket received message. User: {session_id}, Chat ID: {chat_id}")
 
             if not user_message.strip():
                 await websocket.send_text(json.dumps({
@@ -307,10 +301,22 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                 }))
                 continue
 
+            # 确保 chat_id 存在
+            if not chat_id:
+                # 如果没有 chat_id，尝试使用 session_id (兼容旧逻辑，但不推荐)
+                chat_id = session_id
+                print(f"WARNING: No chat_id provided, falling back to user_id: {chat_id}")
+
+            # 懒加载聊天历史 (从 sessions.json)
+            if chat_id not in history_pool:
+                history_pool[chat_id] = load_session_history(session_id, chat_id, work_path)
+
             # 更新聊天历史
-            history = history_pool[session_id]
+            history = history_pool[chat_id]
             history.append([user_message, response_text])
-            save_chat_history(session_id, history, work_path)
+            
+            # 同步更新 sessions.json (这是唯一的持久化存储)
+            update_session_history(session_id, chat_id, history, work_path)
 
     except WebSocketDisconnect:
         manager.disconnect(session_id)
@@ -397,17 +403,128 @@ async def download_file(session_id: str, filename: str):
 
 @app.get("/api/sessions/{session_id}/history")
 async def get_chat_history(session_id: str):
-    """获取聊天历史"""
+    """获取聊天历史 (Legacy)"""
     history = history_pool.get(session_id, load_chat_history(session_id, work_path))
     return {"history": history}
 
 
 @app.post("/api/sessions/{session_id}/clear")
 async def clear_chat_history(session_id: str):
-    """清空聊天历史"""
+    """清空聊天历史 (Legacy)"""
     history_pool[session_id] = []
     save_chat_history(session_id, [], work_path)
     return {"message": "聊天历史已清空"}
+
+
+class SaveSessionsRequest(BaseModel):
+    sessions: List[Dict[str, Any]]
+
+
+@app.get("/api/user/{user_id}/sessions")
+async def get_user_sessions(user_id: str):
+    """获取用户的所有聊天会话"""
+    user_dir = os.path.join(work_path, user_id)
+    sessions_file = os.path.join(user_dir, "sessions.json")
+    print(f"Loading sessions for {user_id} from {sessions_file}")
+    
+    if os.path.exists(sessions_file):
+        try:
+            with open(sessions_file, 'r', encoding='utf-8') as f:
+                sessions = json.load(f)
+            
+            # 转换历史记录格式以适配前端: [[q, a], ...] -> [{role: user, content: q}, {role: assistant, content: a}, ...]
+            for session in sessions:
+                raw_history = session.get("history", [])
+                formatted_history = []
+                for item in raw_history:
+                    if isinstance(item, list) and len(item) >= 2:
+                        formatted_history.append({"role": "user", "content": item[0]})
+                        formatted_history.append({"role": "assistant", "content": item[1]})
+                session["history"] = formatted_history
+                # Update message count to reflect total messages (user + assistant)
+                session["message_count"] = len(formatted_history)
+            
+            print(f"Loaded {len(sessions)} sessions")
+            return {"sessions": sessions}
+        except Exception as e:
+            print(f"Error loading sessions: {e}")
+            return {"sessions": []}
+    print("Sessions file not found")
+    return {"sessions": []}
+
+
+def load_session_history(user_id: str, chat_id: str, work_path: str) -> List[List[str]]:
+    """从 sessions.json 加载特定会话的历史记录"""
+    user_dir = os.path.join(work_path, user_id)
+    sessions_file = os.path.join(user_dir, "sessions.json")
+    
+    if not os.path.exists(sessions_file):
+        return []
+
+    try:
+        with open(sessions_file, 'r', encoding='utf-8') as f:
+            sessions = json.load(f)
+        
+        for session in sessions:
+            if session.get("chat_id") == chat_id:
+                return session.get("history", [])
+    except Exception as e:
+        print(f"Error loading session history: {e}")
+    
+    return []
+
+
+def update_session_history(user_id: str, session_id: str, history: List[List[str]], work_path: str):
+    """更新用户会话列表中的历史记录"""
+    print(f"DEBUG: Updating session history for User: {user_id}, Chat: {session_id}, History Len: {len(history)}")
+    user_dir = os.path.join(work_path, user_id)
+    sessions_file = os.path.join(user_dir, "sessions.json")
+    
+    if not os.path.exists(sessions_file):
+        print(f"DEBUG: Sessions file not found: {sessions_file}")
+        return
+
+    try:
+        with open(sessions_file, 'r', encoding='utf-8') as f:
+            sessions = json.load(f)
+        
+        updated = False
+        for session in sessions:
+            print(f"DEBUG: Checking session {session.get('chat_id')} against {session_id}")
+            if session.get("chat_id") == session_id:
+                session["history"] = history
+                session["last_active"] = datetime.now().isoformat()
+                session["message_count"] = len(history)
+                updated = True
+                print(f"DEBUG: Found and updated session {session_id}")
+                break
+        
+        if updated:
+            with open(sessions_file, 'w', encoding='utf-8') as f:
+                json.dump(sessions, f, ensure_ascii=False, indent=2)
+            print("DEBUG: Successfully saved sessions.json")
+        else:
+            print(f"DEBUG: Chat ID {session_id} not found in sessions.json")
+            
+    except Exception as e:
+        print(f"Failed to update session history in sessions.json: {e}")
+
+
+@app.post("/api/user/{user_id}/sessions")
+async def save_user_sessions(user_id: str, request: SaveSessionsRequest):
+    """保存用户的所有聊天会话"""
+    user_dir = os.path.join(work_path, user_id)
+    os.makedirs(user_dir, exist_ok=True)
+    sessions_file = os.path.join(user_dir, "sessions.json")
+    print(f"Saving {len(request.sessions)} sessions for {user_id} to {sessions_file}")
+    
+    try:
+        with open(sessions_file, 'w', encoding='utf-8') as f:
+            json.dump(request.sessions, f, ensure_ascii=False, indent=2)
+        return {"message": "Sessions saved successfully"}
+    except Exception as e:
+        print(f"Failed to save sessions: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save sessions: {str(e)}")
 
 
 @app.get("/api/schema/{session_id}")

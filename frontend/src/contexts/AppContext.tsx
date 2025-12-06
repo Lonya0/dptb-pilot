@@ -257,12 +257,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.isAuthenticated, state.userId]);
 
   // 自动保存聊天会话到localStorage
+  // 注意：不再自动保存到服务器，因为服务器端的历史记录是最新的
+  // 前端只负责保存到本地作为缓存，以及在创建新会话时通知服务器
   useEffect(() => {
     if (state.userId && state.chatSessions.length > 0) {
+      // 保存到localStorage作为备份
       try {
         localStorage.setItem(`chat_sessions_${state.userId}`, JSON.stringify(state.chatSessions));
       } catch (error) {
-        console.error('保存聊天会话失败:', error);
+        console.error('保存聊天会话到本地失败:', error);
       }
     }
   }, [state.chatSessions, state.userId]);
@@ -278,17 +281,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'LOGIN_SUCCESS', payload: userId });
 
         // 加载现有的聊天会话
-        await actions.loadChatHistory();
+        const sessions = await actions.loadChatHistory(userId);
 
         // 如果没有现有聊天会话，创建一个新的
-        const savedSessions = localStorage.getItem(`chat_sessions_${userId}`);
-        if (!savedSessions || JSON.parse(savedSessions).length === 0) {
+        if (!sessions || sessions.length === 0) {
           await actions.createNewChatSession(userId);
         } else {
           // 如果有现有会话，切换到第一个会话
-          const sessions = JSON.parse(savedSessions);
-          if (sessions.length > 0 && !state.currentChatSession) {
-            await actions.switchToChatSession(sessions[0].chat_id);
+          if (!state.currentChatSession) {
+            // 此时state.chatSessions可能是旧的，localStorage也可能没更新
+            // 但我们有sessions变量
+            // 为了简化，我们手动在这里设置currentChatSession，或者修改switchToChatSession
+            // 既然修改了switchToChatSession接受userId，我们传入它
+            // 但switchToChatSession内部查找session的逻辑还是依赖state或localStorage
+            
+            // 更好的做法：直接在这里dispatch
+            const firstSession = sessions[0];
+            const currentChatSession: CurrentChatSession = {
+              chat_id: firstSession.chat_id,
+              user_id: firstSession.user_id,
+              title: firstSession.title,
+              history: firstSession.history,
+            };
+            dispatch({ type: 'SET_CURRENT_CHAT_SESSION', payload: currentChatSession });
           }
         }
 
@@ -326,6 +341,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
 
       dispatch({ type: 'CREATE_NEW_CHAT_SESSION', payload: newChatSession });
+      
+      // 创建新会话时，同步保存到服务器
+      // 注意：这里我们需要保存完整的会话列表，所以需要获取最新的state
+      // 但由于dispatch是异步的，state.chatSessions还没更新
+      // 所以我们手动构造新的列表
+      const updatedSessions = [...state.chatSessions, newChatSession];
+      try {
+        await apiService.saveUserSessions(targetUserId, updatedSessions);
+      } catch (error) {
+        console.error('保存新会话到服务器失败:', error);
+      }
+
       return newChatSession;
     },
 
@@ -357,7 +384,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'ADD_CHAT_MESSAGE', payload: assistantMessage });
 
         // 通过WebSocket发送消息
-        wsService.sendMessage(message);
+        wsService.sendMessage(message, state.currentChatSession.chat_id);
       } catch (error) {
         console.error("sendMessage 动作捕获到错误:", error);
         dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : '发送消息失败' });
@@ -365,30 +392,79 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     },
 
-    loadChatHistory: async () => {
-      // 这个方法现在用于从localStorage加载用户的所有聊天会话
-      if (!state.userId) return;
+    loadChatHistory: async (userId?: string) => {
+      const targetUserId = userId || state.userId;
+      // 从服务器加载用户的所有聊天会话
+      if (!targetUserId) return [];
 
       try {
-        const savedSessions = localStorage.getItem(`chat_sessions_${state.userId}`);
+        // 优先尝试从服务器加载
+        try {
+          const { sessions } = await apiService.getUserSessions(targetUserId);
+          if (sessions && sessions.length > 0) {
+            dispatch({ type: 'SET_CHAT_SESSIONS', payload: sessions });
+            return sessions;
+          }
+        } catch (serverError) {
+          console.warn('从服务器加载会话失败，尝试本地缓存:', serverError);
+        }
+
+        // 如果服务器没有或失败，尝试从本地加载
+        const savedSessions = localStorage.getItem(`chat_sessions_${targetUserId}`);
         if (savedSessions) {
           const chatSessions: ChatSession[] = JSON.parse(savedSessions);
           dispatch({ type: 'SET_CHAT_SESSIONS', payload: chatSessions });
+          return chatSessions;
         }
       } catch (error) {
         console.error('加载聊天会话失败:', error);
       }
+      return [];
     },
 
-    switchToChatSession: async (chatId: string) => {
-      if (!state.userId) return;
+    switchToChatSession: async (chatId: string, userId?: string) => {
+      const targetUserId = userId || state.userId;
+      if (!targetUserId) return;
 
       try {
-        const savedSessions = localStorage.getItem(`chat_sessions_${state.userId}`);
-        if (savedSessions) {
-          const chatSessions: ChatSession[] = JSON.parse(savedSessions);
-          const targetSession = chatSessions.find(s => s.chat_id === chatId);
-          if (targetSession) {
+        // 优先从state中查找，因为state应该是最新的
+        // 注意：这里的state.chatSessions可能也是旧的，如果刚加载完
+        // 但我们已经通过loadChatHistory更新了state，不过在同一个闭包里state没变
+        // 所以这里最好重新获取一下，或者依赖传入的参数（如果能传入sessions最好）
+        // 简单起见，我们尝试从localStorage读取作为兜底，或者信任state（如果是在后续渲染周期调用）
+        
+        // 在login流程中，loadChatHistory刚跑完，state.chatSessions是旧的([])
+        // 所以必须从localStorage或者API重新获取，或者...
+        // 实际上loadChatHistory返回了sessions，login函数里有sessions变量
+        // 但switchToChatSession无法直接访问那个变量除非传进来
+        
+        // 让我们尝试从localStorage读取，因为loadChatHistory应该已经更新了localStorage (通过useEffect? 不，useEffect也是异步的)
+        // 等等，loadChatHistory dispatch了SET_CHAT_SESSIONS，但useEffect依赖state.chatSessions
+        // 如果state没变，useEffect不会触发？
+        // 不，dispatch触发重渲染，useEffect在重渲染后运行。
+        // 但在login函数执行期间，重渲染还没发生。
+        
+        // 所以：loadChatHistory -> dispatch -> (login continues) -> switchToChatSession
+        // 此时 localStorage 可能还没更新！
+        
+        // 最稳妥的办法：Login直接调用 dispatch({ type: 'SET_CURRENT_CHAT_SESSION', ... }) 
+        // 而不是调用 switchToChatSession action?
+        // 或者让 switchToChatSession 接受 sessions 数组?
+        
+        let targetSession = state.chatSessions.find(s => s.chat_id === chatId);
+        
+        if (!targetSession) {
+             const savedSessions = localStorage.getItem(`chat_sessions_${targetUserId}`);
+             if (savedSessions) {
+               const chatSessions: ChatSession[] = JSON.parse(savedSessions);
+               targetSession = chatSessions.find(s => s.chat_id === chatId);
+             }
+        }
+        
+        // 如果还是找不到（因为localStorage也没更新），我们需要一种方式
+        // 也许我们应该让 switchToChatSession 支持传入 session 对象？
+        
+        if (targetSession) {
             const currentChatSession: CurrentChatSession = {
               chat_id: targetSession.chat_id,
               user_id: targetSession.user_id,
@@ -396,7 +472,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
               history: targetSession.history,
             };
             dispatch({ type: 'SET_CURRENT_CHAT_SESSION', payload: currentChatSession });
-          }
         }
       } catch (error) {
         console.error('切换聊天会话失败:', error);

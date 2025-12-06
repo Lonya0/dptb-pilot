@@ -93,6 +93,18 @@ export const apiService = {
     return response.data;
   },
 
+  // 获取用户的所有会话
+  async getUserSessions(userId: string): Promise<{ sessions: any[] }> {
+    const response = await api.get(`/user/${userId}/sessions`);
+    return response.data;
+  },
+
+  // 保存用户的所有会话
+  async saveUserSessions(userId: string, sessions: any[]): Promise<{ message: string }> {
+    const response = await api.post(`/user/${userId}/sessions`, { sessions });
+    return response.data;
+  },
+
   // 获取当前工具参数schema
   async getCurrentSchema(sessionId: string): Promise<{ schema: ToolSchema }> {
     const response = await api.get(`/schema/${sessionId}`);
@@ -194,10 +206,11 @@ export class WebSocketService {
     this.messageHandlers = [];
   }
 
-  sendMessage(message: string) {
+  sendMessage(message: string, chatId?: string) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      console.log('即将通过WebSocket发送消息:', JSON.stringify({ message }));
-      this.ws.send(JSON.stringify({ message }));
+      const payload = { message, chat_id: chatId };
+      console.log('即将通过WebSocket发送消息:', JSON.stringify(payload));
+      this.ws.send(JSON.stringify(payload));
     } else {
       throw new Error('WebSocket连接未建立');
     }

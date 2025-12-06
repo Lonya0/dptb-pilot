@@ -37,15 +37,19 @@ MCP_TOOLS_URL=http://localhost:${MCP_TOOLS_PORT}/sse
 *   Node.js & npm
 *   已激活 Python 虚拟环境 (推荐: `pybaim`)
 
-### 步骤 1: 安装项目
+### 3. 配置环境变量
 
-在项目根目录下执行：
+复制 `env.example` 到 `.env` 并修改配置：
 
 ```bash
-pip install -e .
+cp env.example .env
 ```
 
-这会安装两个命令行工具：`dptb-pilot` (主应用) 和 `dptb-tools` (MCP 工具服务)。
+主要配置项：
+- `LLM_API_KEY`: 您的 LLM API 密钥
+- `WORK_ROOT`: 工作区根目录 (默认: 当前目录)
+- `PORT`: 后端服务端口 (默认: 8000)
+- `FRONTEND_PORT`: 前端服务端口 (默认: 50001)。
 
 ### 步骤 2: 启动服务
 
