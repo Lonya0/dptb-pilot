@@ -344,14 +344,14 @@ function Chat() {
         zIndex: 10
       }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Title level={4} style={{ 
-            margin: 0, 
-            color: '#0ea5e9',
-            fontWeight: 'bold',
-            letterSpacing: '0.5px'
-          }}>
-            DeepTB-Pilot
-          </Title>
+          <img 
+            src="/pilot_logo_white.png" 
+            alt="DeepTB Pilot" 
+            style={{ 
+              height: '32px', 
+              filter: 'drop-shadow(0 0 5px rgba(59, 130, 246, 0.5))' 
+            }} 
+          />
         </div>
 
         <Space size="middle">
