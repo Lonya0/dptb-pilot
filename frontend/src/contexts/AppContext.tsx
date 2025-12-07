@@ -289,6 +289,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
               }
             }
             dispatch({ type: 'SET_RESPONDING', payload: false });
+            
+            // 任务完成后刷新文件列表，因为Agent可能生成了新文件
+            actions.loadFiles();
             break;
           case 'error':
             dispatch({ type: 'SET_ERROR', payload: message.message || 'WebSocket错误' });
