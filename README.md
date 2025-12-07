@@ -71,7 +71,14 @@ MP_API_KEY=your_mp_api_key_here
 # Server Configuration
 HOST=0.0.0.0
 PORT=8000
+FRONTEND_HOST=0.0.0.0
 FRONTEND_PORT=50001
+BACKEND_HOST=localhost
+MCP_TOOLS_PORT=50002
+MCP_TOOLS_URL=http://localhost:${MCP_TOOLS_PORT}/sse
+
+# Workspace Configuration
+WORK_ROOT=./workspace
 ```
 
 ### 3. Running the Application
