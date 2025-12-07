@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Input, Button, Typography, Form, Alert, Spin, Space, Divider } from 'antd';
-import { UserOutlined, KeyOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Card, Input, Button, Typography, Form, Alert, Spin } from 'antd';
+import { KeyOutlined } from '@ant-design/icons';
 import { useApp } from '../../contexts/AppContext';
 
-const { Title, Paragraph } = Typography;
+const { Title, Paragraph, Text } = Typography;
 
 function generateRandomString(length = 32): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -22,14 +22,12 @@ function Login() {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    // 如果已经认证，重定向到聊天页面
     if (state.isAuthenticated) {
       navigate('/chat');
     }
   }, [state.isAuthenticated, navigate]);
 
   useEffect(() => {
-    // 尝试从本地存储加载上次的会话ID
     const savedSessionId = localStorage.getItem('last_session_id');
     if (savedSessionId) {
       setSessionId(savedSessionId);
@@ -52,19 +50,16 @@ function Login() {
     }
 
     try {
-      // 保存到本地存储
       localStorage.setItem('last_session_id', values.session_id);
       await actions.login(values.session_id);
       navigate('/chat');
     } catch (error) {
-      // 错误已通过context处理，这里不需要额外处理
       console.error('Login submit error:', error);
     }
   };
 
   const handleSessionIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // 只允许字母数字字符，最大32位
     const filteredValue = value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
     setSessionId(filteredValue);
     form.setFieldsValue({ session_id: filteredValue });
@@ -76,9 +71,10 @@ function Login() {
         height: '100vh',
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
+        background: '#020617'
       }}>
-        <Spin size="large" tip="正在连接服务器..." />
+        <Spin size="large" tip="Connecting..." />
       </div>
     );
   }
@@ -89,51 +85,78 @@ function Login() {
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      background: 'linear-gradient(135deg, #250D59 0%, #4300D8 100%)', // DeePTB Brand Colors
-      padding: '20px'
+      background: '#020617', // slate-950
+      backgroundImage: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)',
+      padding: '20px',
+      overflow: 'hidden'
     }}>
+      <style>
+        {`
+          @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+          }
+          .hologram-card {
+            animation: float 6s ease-in-out infinite;
+          }
+          .login-input::placeholder {
+            color: #0e7490 !important; /* cyan-700 */
+          }
+          .login-input:hover, .login-input:focus {
+            border-bottom-color: #22d3ee !important; /* cyan-400 */
+          }
+        `}
+      </style>
+
       <Card
+        className="hologram-card"
         style={{
           width: '100%',
           maxWidth: 480,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-          borderRadius: '16px',
-          border: 'none'
+          background: 'linear-gradient(to bottom, rgba(15, 23, 42, 0.1), rgba(30, 58, 138, 0.2))', // slate-900/10 to blue-900/20
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(6, 182, 212, 0.3)', // cyan-500/30
+          boxShadow: '0 0 15px rgba(6, 182, 212, 0.15)', // cyan glow
+          borderRadius: '16px'
         }}
-        bodyStyle={{ padding: '48px 40px' }}
+        bodyStyle={{ padding: '40px' }}
       >
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <img 
-            src="/logo.svg" 
-            alt="DeePTB Logo" 
-            style={{ 
-              height: '64px', 
-              marginBottom: '24px',
-              maxWidth: '100%'
-            }} 
-          />
-          <Title level={2} style={{ margin: '0', color: '#001529', fontWeight: 'bold', fontSize: '28px' }}>
-            DeePTB Pilot
+        {/* Top Logo Section */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <img 
+              src="/pilot_logo_white.png" 
+              alt="DeePTB Pilot" 
+              style={{ 
+                height: '64px', 
+                maxWidth: '100%',
+                filter: 'drop-shadow(0 0 10px rgba(59, 130, 246, 0.5))' // blue glow
+              }} 
+            />
+          </div>
+          <Title level={2} style={{ margin: '0', color: '#cffafe', fontWeight: 'bold', fontSize: '24px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            DeepTB Pilot
           </Title>
-          <Paragraph style={{ color: '#595959', margin: '8px 0', fontSize: '16px' }}>
-            AI Agent for DeePTB
+          <Paragraph style={{ color: '#0e7490', margin: '4px 0 0 0', fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            System Access Terminal
           </Paragraph>
         </div>
 
-        <Divider style={{ margin: '24px 0' }}>创建会话</Divider>
-
         {state.error && (
           <Alert
-            message="连接错误"
+            message="Connection Error"
             description={state.error}
             type="error"
             showIcon
             closable
-            onClose={() => {
-              // 清空错误状态，不触发登录
-              dispatch({ type: 'SET_ERROR', payload: null });
+            onClose={() => dispatch({ type: 'SET_ERROR', payload: null })}
+            style={{ 
+              marginBottom: '24px', 
+              background: 'rgba(239, 68, 68, 0.1)', 
+              border: '1px solid rgba(239, 68, 68, 0.2)', 
+              color: '#fca5a5' 
             }}
-            style={{ marginBottom: '16px' }}
           />
         )}
 
@@ -144,48 +167,111 @@ function Login() {
           size="large"
         >
           <Form.Item
-            label="会话ID"
+            label={<span style={{ color: '#22d3ee', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Session ID / 会话 ID</span>}
             name="session_id"
             rules={[
-              { required: true, message: '请输入会话ID' },
-              { len: 32, message: '会话ID需要为长度为32的任意字符' }
+              { required: true, message: 'Please enter Session ID' },
+              { len: 32, message: 'Session ID must be 32 characters' }
             ]}
-            extra="输入或自动生成32位任意字符串作为您的专属会话ID，使用相同ID可以访问此前的历史记录，历史记录在一小时后会被自动清除，请不要传播您专属的ID！"
+            style={{ marginBottom: '32px' }}
           >
-            <Space.Compact style={{ width: '100%' }}>
+            <div style={{ position: 'relative' }}>
               <Input
-                placeholder="请输入32位任意字符串"
-                prefix={<KeyOutlined />}
+                placeholder="ENTER 32-CHAR ID"
+                prefix={<KeyOutlined style={{ color: '#0e7490' }} />}
+                suffix={
+                  <Button
+                    type="text"
+                    onClick={handleGenerateRandom}
+                    style={{
+                      color: '#22d3ee', // cyan-400
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      padding: '4px 8px',
+                      height: 'auto',
+                      border: '1px solid rgba(34, 211, 238, 0.3)',
+                      background: 'rgba(6, 182, 212, 0.1)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(6, 182, 212, 0.2)';
+                      e.currentTarget.style.boxShadow = '0 0 8px rgba(34, 211, 238, 0.4)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(6, 182, 212, 0.1)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    GENERATE
+                  </Button>
+                }
                 value={sessionId}
                 onChange={handleSessionIdChange}
-                style={{ flex: 1 }}
+                style={{ 
+                  background: 'rgba(2, 6, 23, 0.5)', // slate-950/50
+                  border: 'none',
+                  borderBottom: '1px solid rgba(6, 182, 212, 0.5)', // cyan-500/50
+                  color: '#cffafe', // cyan-100
+                  fontFamily: 'monospace',
+                  fontSize: '14px',
+                  height: '48px',
+                  borderRadius: '4px 4px 0 0',
+                  letterSpacing: '0.05em'
+                }}
+                className="login-input"
               />
-              <Button
-                type="primary"
-                icon={<ReloadOutlined />}
-                onClick={handleGenerateRandom}
-                title="随机生成"
-              >
-                随机生成
-              </Button>
-            </Space.Compact>
+            </div>
+            <div style={{ marginTop: '8px', textAlign: 'center' }}>
+              <Text style={{ color: '#0e7490', fontSize: '10px', letterSpacing: '0.05em' }}>
+                INPUT OR AUTO-GENERATE 32-BIT SESSION KEY
+              </Text>
+            </div>
           </Form.Item>
 
           <Form.Item style={{ marginBottom: '0' }}>
             <Button
-              type="primary"
               htmlType="submit"
-              icon={<UserOutlined />}
               loading={state.loading}
               block
-              style={{ height: '48px', fontSize: '16px' }}
+              style={{ 
+                height: '48px', 
+                fontSize: '14px', 
+                fontWeight: 700,
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                background: 'rgba(8, 145, 178, 0.2)', // cyan-600/20
+                border: '1px solid #22d3ee', // cyan-400
+                color: '#67e8f9', // cyan-300
+                boxShadow: '0 0 10px rgba(34, 211, 238, 0.2)', // cyan glow
+                borderRadius: '4px',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(8, 145, 178, 0.4)';
+                e.currentTarget.style.boxShadow = '0 0 20px rgba(34, 211, 238, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(8, 145, 178, 0.2)';
+                e.currentTarget.style.boxShadow = '0 0 10px rgba(34, 211, 238, 0.2)';
+              }}
             >
-              进入会话
+              Initialize Session
             </Button>
           </Form.Item>
         </Form>
-
-
+        
+        {/* Decorative Divider */}
+        <div style={{ 
+          marginTop: '40px', 
+          height: '1px', 
+          background: 'linear-gradient(to right, transparent, rgba(6, 182, 212, 0.5), transparent)',
+          width: '100%'
+        }} />
+        
+        <div style={{ marginTop: '16px', textAlign: 'center' }}>
+          <Text style={{ color: '#0e7490', fontSize: '10px', fontFamily: 'monospace' }}>
+            SECURE CONNECTION :: V1.0.0
+          </Text>
+        </div>
       </Card>
     </div>
   );
