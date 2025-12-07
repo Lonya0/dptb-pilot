@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
-import { AppState, CurrentChatSession, ChatSession, ChatMessage, FileInfo, ExecutionMode, ModifyMode } from '../types';
+import { AppState, CurrentChatSession, ExecutionMode } from '../types';
+import {
+  ChatMessage,
+  ChatSession,
+  FileInfo,
+  ModifyMode,
+  ToolSchema
+} from '../types';
 import { apiService, wsService } from '../services/api';
 import { message } from 'antd';
 
@@ -19,7 +26,8 @@ type AppAction =
   | { type: 'SET_MODIFY_MODE'; payload: ModifyMode }
   | { type: 'UPDATE_STREAMING_RESPONSE'; payload: string }
   | { type: 'SET_RESPONDING'; payload: boolean }
-  | { type: 'SET_PENDING_TOOL_RESPONSE'; payload: string };
+  | { type: 'SET_PENDING_TOOL_RESPONSE'; payload: string }
+  | { type: 'SET_LANGUAGE'; payload: 'zh' | 'en' };
 
 // 初始状态
 const initialState: AppState = {
@@ -35,6 +43,7 @@ const initialState: AppState = {
   error: null,
   responding: false,
   pendingToolResponse: '',
+  language: 'zh',
 };
 
 // Reducer函数
@@ -151,31 +160,37 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_PENDING_TOOL_RESPONSE':
       return { ...state, pendingToolResponse: action.payload };
 
+    case 'SET_LANGUAGE':
+      return { ...state, language: action.payload };
+
     default:
       return state;
   }
+}
+
+interface AppContextActions {
+  login: (userId: string) => Promise<void>;
+  logout: () => void;
+  sendMessage: (message: string) => Promise<void>;
+  loadChatHistory: (userId?: string) => Promise<ChatSession[] | undefined>;
+  createNewChatSession: (userId?: string) => Promise<ChatSession | undefined>;
+  deleteChatSession: (chatId: string) => Promise<void>;
+  updateSessionTitle: (chatId: string, title: string) => Promise<void>;
+  clearCurrentChatHistory: () => Promise<void>;
+  loadFiles: () => Promise<void>;
+  uploadFiles: (files: File[]) => Promise<void>;
+  deleteFile: (filename: string) => Promise<void>;
+  getCurrentSchema: () => Promise<ToolSchema | null>;
+  modifyParameters: (schema: ToolSchema) => Promise<void>;
+  toggleLanguage: () => void;
+  switchToChatSession: (chatId: string) => Promise<void>;
 }
 
 // Context创建
 const AppContext = createContext<{
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
-  actions: {
-    login: (sessionId: string) => Promise<void>;
-    logout: () => void;
-    sendMessage: (message: string) => Promise<void>;
-    loadChatHistory: () => Promise<void>;
-    loadFiles: () => Promise<void>;
-    uploadFiles: (files: File[]) => Promise<void>;
-    deleteFile: (filename: string) => Promise<void>;
-    clearCurrentChatHistory: () => Promise<void>;
-    createNewChatSession: (userId?: string) => Promise<ChatSession | undefined>;
-    switchToChatSession: (chatId: string) => Promise<void>;
-    modifyParameters: (modifiedSchema: any) => Promise<void>;
-    getCurrentSchema: () => Promise<any>;
-    deleteChatSession: (chatId: string) => Promise<ChatSession[] | undefined>;
-    updateSessionTitle: (chatId: string, title: string) => Promise<void>;
-  };
+  actions: AppContextActions;
 } | null>(null);
 
 // Provider组件
@@ -689,6 +704,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         message.error('同步标题到服务器失败');
         throw error;
       }
+    },
+
+    toggleLanguage: () => {
+      const newLang = state.language === 'zh' ? 'en' : 'zh';
+      dispatch({ type: 'SET_LANGUAGE', payload: newLang });
+      localStorage.setItem('app_language', newLang);
     },
   };
 

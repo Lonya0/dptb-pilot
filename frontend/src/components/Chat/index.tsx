@@ -4,29 +4,30 @@ import {
   Layout,
   Button,
   Input,
-  Select,
   Typography,
   Space,
   message,
   Spin,
-  Divider,
   Alert,
   Tooltip,
   Upload,
-  Avatar
+  Avatar,
+  Tag
 } from 'antd';
 import {
   SendOutlined,
   ClearOutlined,
   LogoutOutlined,
-  MessageOutlined,
   UserOutlined,
   RobotOutlined,
-  PaperClipOutlined
+  PaperClipOutlined,
+  ExperimentOutlined,
+  LineChartOutlined,
+  SettingOutlined,
+  SearchOutlined,
+  GlobalOutlined
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
-// import Prism from 'prismjs';
-// import 'prismjs/themes/prism-tomorrow.css';
 import StructureViewer from '../StructureViewer';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -35,93 +36,75 @@ import { useApp } from '../../contexts/AppContext';
 import FilePanel from '../FilePanel';
 import ParamPanel from '../ParamPanel';
 import SessionPanel from '../SessionPanel';
+import { translations } from '../../utils/i18n';
 
 const { Header, Content, Sider } = Layout;
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
-// 示例对话选项
-const EXAMPLE_MESSAGES = [
-  {
-    text: '请帮我生成碳的训练输入配置文件，基组为{"C":"2s1p"}，截断半径{"C":6.0}，训练数据路径"my_data"，前缀"C16"，其余按默认配置',
-    display: '生成训练输入配置文件'
-  },
-  {
-    text: '使用poly4基准模型绘制能带图，结构文件为xxx',
-    display: '使用基准模型绘制能带图'
-  },
-  {
-    text: '请帮我生成sp轨道的Si的ploy4基准模型',
-    display: '生成基准模型'
-  },
-  {
-    text: '请使用我的模型预测并绘制能带图',
-    display: '使用模型预测并绘制能带图'
-  }
-];
-
 function Chat() {
   const navigate = useNavigate();
   const { state, actions } = useApp();
   const [inputValue, setInputValue] = useState('');
-  const [selectedExample, setSelectedExample] = useState<string>('-');
+  const [activeTab, setActiveTab] = useState('params');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  const t = translations[state.language];
+
+  // Shortcut Cards Data
+  const SHORTCUT_CARDS = [
+    {
+      icon: <ExperimentOutlined style={{ fontSize: '24px', color: '#0ea5e9' }} />,
+      title: t.analyzeStructures,
+      desc: t.analyzeStructuresDesc,
+      prompt: '请帮我分析一下上传的晶体结构文件'
+    },
+    {
+      icon: <LineChartOutlined style={{ fontSize: '24px', color: '#8b5cf6' }} />,
+      title: t.calculateBands,
+      desc: t.calculateBandsDesc,
+      prompt: '请帮我计算并绘制能带图'
+    },
+    {
+      icon: <SettingOutlined style={{ fontSize: '24px', color: '#10b981' }} />,
+      title: t.generateConfigs,
+      desc: t.generateConfigsDesc,
+      prompt: '请帮我生成DeepTB训练配置文件'
+    },
+    {
+      icon: <SearchOutlined style={{ fontSize: '24px', color: '#f59e0b' }} />,
+      title: t.searchMaterials,
+      desc: t.searchMaterialsDesc,
+      prompt: '请帮我搜索相关的材料数据'
+    }
+  ];
 
   useEffect(() => {
     if (!state.isAuthenticated) {
       navigate('/login');
       return;
     }
-
-    // 初始化Prism代码高亮（如果需要的话）
-    // Prism.highlightAll();
   }, [state.isAuthenticated, navigate]);
 
   useEffect(() => {
-    // 滚动到底部
     scrollToBottom();
   }, [state.currentChatSession?.history]);
-
-  useEffect(() => {
-    // 示例选择时自动填充消息
-    if (selectedExample && selectedExample !== '-') {
-      const example = EXAMPLE_MESSAGES.find(ex => ex.text === selectedExample);
-      if (example) {
-        setInputValue(example.text);
-      }
-    }
-  }, [selectedExample]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSendMessage = async () => {
-    console.log('handleSendMessage function called');
-    
-    // 调试日志：检查发送前的状态
-    console.log('Checking conditions:', {
-      hasMessage: !!inputValue.trim(),
-      hasUserId: !!state.userId,
-      hasCurrentChatSession: !!state.currentChatSession,
-    });
+  const handleSendMessage = async (text?: string) => {
+    const content = text || inputValue;
+    if (!content.trim() || !state.userId || !state.currentChatSession) return;
 
-    if (!inputValue.trim() || !state.userId || !state.currentChatSession) {
-      console.error('发送被阻止，因为上述条件之一不满足。');
-      return;
-    }
-
-    const messageToSend = inputValue;
     setInputValue('');
-    setSelectedExample('-');
-
     try {
-      await actions.sendMessage(messageToSend);
+      await actions.sendMessage(content);
     } catch (error) {
-      message.error('发送消息失败');
-      console.error('Send message error:', error);
+      message.error(t.sendFailed);
     }
   };
 
@@ -135,9 +118,9 @@ function Chat() {
   const handleClearChat = async () => {
     try {
       await actions.clearCurrentChatHistory();
-      message.success('当前聊天记录已清空');
+      message.success(t.clearSuccess);
     } catch (error) {
-      message.error('清空聊天记录失败');
+      message.error(t.clearFailed);
     }
   };
 
@@ -150,28 +133,26 @@ function Chat() {
 
   const handleUpload = async (file: File) => {
     if (!state.userId) {
-      message.error('请先登录');
+      message.error(t.loginRequired);
       return false;
     }
 
-    // 检查文件大小 (10MB限制)
     if (file.size > 10 * 1024 * 1024) {
-      message.error('文件大小不能超过10MB');
+      message.error(t.fileSizeLimit);
       return false;
     }
 
     setUploading(true);
     try {
       await actions.uploadFiles([file]);
-      message.success(`文件 ${file.name} 上传成功`);
+      message.success(`${t.uploadSuccess}: ${file.name}`);
     } catch (error) {
-      message.error(`文件 ${file.name} 上传失败`);
-      console.error('Upload error:', error);
+      message.error(`${t.uploadFailed}: ${file.name}`);
     } finally {
       setUploading(false);
     }
 
-    return false; // 阻止默认上传行为
+    return false;
   };
 
   const formatMessage = (content: string) => {
@@ -205,10 +186,7 @@ function Chat() {
                     {children}
                   </code>
                 )
-              },
-              img: (props) => (
-                <img {...props} style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px' }} />
-              )
+              }
             }}>{parts[0]}</ReactMarkdown>}
             
             <div style={{ margin: '10px 0' }}>
@@ -234,10 +212,7 @@ function Chat() {
                     {children}
                   </code>
                 )
-              },
-              img: (props) => (
-                <img {...props} style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px' }} />
-              )
+              }
             }}>{parts[1]}</ReactMarkdown>}
           </div>
         );
@@ -267,10 +242,7 @@ function Chat() {
                 {children}
               </code>
             )
-          },
-          img: (props) => (
-            <img {...props} style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px' }} />
-          )
+          }
         }}
       >
         {content}
@@ -288,34 +260,28 @@ function Chat() {
         style={{
           display: 'flex',
           justifyContent: isUser ? 'flex-end' : 'flex-start',
-          marginBottom: '16px'
+          marginBottom: '24px'
         }}
       >
         <div style={{
           display: 'flex',
           alignItems: 'flex-start',
-          maxWidth: '70%',
+          maxWidth: '75%',
           width: 'auto'
         }}>
           {!isUser && (
             <Avatar 
               icon={<RobotOutlined />}
-              style={{ marginRight: '12px', marginTop: '4px', backgroundColor: '#1677ff', flexShrink: 0 }} 
+              style={{ marginRight: '16px', marginTop: '4px', backgroundColor: '#1e293b', flexShrink: 0 }} 
             />
           )}
-          <div
-            style={{
-              padding: '12px 16px',
-              borderRadius: '12px',
-              backgroundColor: isUser ? '#1677ff' : '#f5f5f5',
-              color: isUser ? 'white' : '#262626',
-              border: isUser ? 'none' : '1px solid #d9d9d9',
-              width: 'auto',
-              textAlign: 'left',
-              wordBreak: 'break-word',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
-            }}
-          >
+          <div className={`chat-message ${isUser ? 'user' : 'assistant'}`} style={{
+            backgroundColor: isUser ? '#2563eb' : '#1e293b', // blue-600 : slate-800
+            color: isUser ? '#ffffff' : '#e2e8f0', // white : slate-200
+            padding: '12px 16px',
+            borderRadius: '12px',
+            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+          }}>
             {isUser ? (
               <Text style={{ color: 'white' }}>{msg.content}</Text>
             ) : (
@@ -332,7 +298,7 @@ function Chat() {
           {isUser && (
             <Avatar 
               icon={<UserOutlined />} 
-              style={{ marginLeft: '12px', marginTop: '4px', backgroundColor: '#87d068', flexShrink: 0 }} 
+              style={{ marginLeft: '16px', marginTop: '4px', backgroundColor: '#0ea5e9', flexShrink: 0 }} 
             />
           )}
         </div>
@@ -346,7 +312,8 @@ function Chat() {
         height: '100vh',
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
+        background: '#020617' // slate-950
       }}>
         <Spin size="large" />
       </div>
@@ -354,185 +321,322 @@ function Chat() {
   }
 
   return (
-    <Layout style={{ height: '100vh' }}>
+    <Layout style={{ height: '100vh', background: '#020617' }}> {/* slate-950 */}
+      {/* Top Navigation */}
       <Header style={{
-        background: '#fff',
-        borderBottom: '1px solid #f0f0f0',
+        background: 'rgba(15, 23, 42, 0.8)', // slate-900/80
+        backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
         padding: '0 24px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-        zIndex: 10,
-        position: 'relative'
+        height: '64px',
+        zIndex: 10
       }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <MessageOutlined style={{ marginRight: '8px', color: '#1677ff' }} />
-          <Title level={4} style={{ margin: 0 }}>
-            DeePTB-Pilot
+          <Title level={4} style={{ 
+            margin: 0, 
+            color: '#0ea5e9',
+            fontWeight: 'bold',
+            letterSpacing: '0.5px'
+          }}>
+            DeepTB-Pilot
           </Title>
         </div>
 
-        <Space>
-          <Tooltip title="用户会话ID">
-            <Text code>{state.userId?.slice(0, 4)}****{state.userId?.slice(-4)}</Text>
+        <Space size="middle">
+          <Button
+            icon={<GlobalOutlined />}
+            onClick={actions.toggleLanguage}
+            className="glass-btn"
+            shape="round"
+            size="small"
+            style={{ color: '#94a3b8', borderColor: 'rgba(255,255,255,0.1)' }}
+          >
+            {state.language === 'zh' ? '中 / En' : 'En / 中'}
+          </Button>
+          <Tooltip title={`User ID: ${state.userId}`}>
+            <Tag icon={<UserOutlined />} color="blue" style={{ 
+              margin: 0, 
+              padding: '6px 12px', 
+              borderRadius: '20px',
+              background: 'rgba(14, 165, 233, 0.1)',
+              border: '1px solid rgba(14, 165, 233, 0.2)',
+              color: '#0ea5e9'
+            }}>
+              {state.userId?.slice(0, 4)}...{state.userId?.slice(-4)}
+            </Tag>
           </Tooltip>
-          <Button
-            icon={<ClearOutlined />}
-            onClick={handleClearChat}
-            disabled={state.loading}
-          >
-            清空对话
-          </Button>
-          <Button
-            icon={<LogoutOutlined />}
-            onClick={handleLogout}
-            type="default"
-          >
-            离开会话
-          </Button>
+          <Tooltip title={t.clearChat}>
+            <Button
+              icon={<ClearOutlined />}
+              onClick={handleClearChat}
+              disabled={state.loading}
+              className="glass-btn"
+              shape="circle"
+            />
+          </Tooltip>
+          <Tooltip title={t.logout}>
+            <Button
+              icon={<LogoutOutlined />}
+              onClick={handleLogout}
+              className="glass-btn"
+              shape="circle"
+            />
+          </Tooltip>
         </Space>
       </Header>
 
-      <Layout>
+      <Layout style={{ background: 'transparent' }}>
+        {/* Left Sidebar: History */}
         <Sider 
-          width={300} 
-          style={{ background: '#fff', borderRight: '1px solid #f0f0f0' }}
-          collapsible
-          breakpoint="lg"
-          theme="light"
+          width={280} 
+          className="glass-panel"
+          style={{ 
+            borderRight: '1px solid rgba(255, 255, 255, 0.05)',
+            background: '#0f172a' // slate-900
+          }}
         >
-          <div style={{ padding: '16px', height: '100%', overflowY: 'auto' }}>
+          <div style={{ padding: '20px', height: '100%', overflowY: 'auto' }}>
             <SessionPanel />
           </div>
         </Sider>
 
-        <Content style={{ display: 'flex' }}>
+        {/* Center: Chat Area */}
+        <Content style={{ display: 'flex', position: 'relative', background: '#020617' }}> {/* slate-950 */}
           <div 
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
             onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
+              e.preventDefault(); e.stopPropagation();
               const files = Array.from(e.dataTransfer.files);
-              if (files.length > 0) {
-                files.forEach(file => handleUpload(file));
-              }
+              if (files.length > 0) files.forEach(file => handleUpload(file));
             }}
           >
             <div
               ref={chatContainerRef}
               style={{
                 flex: 1,
-                padding: '16px 24px',
+                padding: '24px 40px 100px 40px', // Extra padding at bottom for floating input
                 overflowY: 'auto',
-                backgroundColor: '#fafafa'
+                backgroundColor: 'transparent'
               }}
             >
-              {state.currentChatSession?.history.map((msg, index) => renderMessage(msg, index))}
-              <div ref={messagesEndRef} />
+              {(!state.currentChatSession?.history || state.currentChatSession.history.length === 0) ? (
+                <div style={{ 
+                  height: '100%', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  justifyContent: 'center', 
+                  alignItems: 'center',
+                  maxWidth: '800px',
+                  margin: '0 auto'
+                }}>
+                  <Title level={2} style={{ marginBottom: '10px', textAlign: 'center', color: '#e2e8f0' }}>
+                    {t.welcomeTitle}
+                  </Title>
+                  <Text style={{ marginBottom: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '16px' }}>
+                    {t.welcomeSubtitle}
+                  </Text>
+                  
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: '1fr 1fr', 
+                    gap: '20px', 
+                    width: '100%' 
+                  }}>
+                    {SHORTCUT_CARDS.map((card, idx) => (
+                      <div 
+                        key={idx}
+                        className="glass-card"
+                        style={{ 
+                          padding: '24px', 
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '16px',
+                          background: '#1e293b', // slate-800
+                          border: '1px solid #334155' // slate-700
+                        }}
+                        onClick={() => handleSendMessage(card.prompt)}
+                      >
+                        <div style={{ 
+                          width: '48px', 
+                          height: '48px', 
+                          borderRadius: '12px', 
+                          background: 'rgba(255,255,255,0.05)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {card.icon}
+                        </div>
+                        <div>
+                          <Text strong style={{ fontSize: '16px', display: 'block', color: '#e2e8f0' }}>{card.title}</Text>
+                          <Text style={{ fontSize: '13px', color: '#94a3b8' }}>{card.desc}</Text>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {state.currentChatSession?.history.map((msg, index) => renderMessage(msg, index))}
+                  <div ref={messagesEndRef} />
+                </>
+              )}
             </div>
 
-            {state.error && (
-              <Alert
-                message="错误"
-                description={state.error}
-                type="error"
-                showIcon
-                closable
-                onClose={() => {/* 清除错误 */}}
-                style={{ margin: '0 24px 16px' }}
-              />
-            )}
-
-            <div style={{ padding: '0 24px 24px 24px', backgroundColor: 'transparent' }}>
+            {/* Floating Input Area */}
+            <div style={{ 
+              position: 'absolute', 
+              bottom: '30px', 
+              left: '50%', 
+              transform: 'translateX(-50%)',
+              width: '90%',
+              maxWidth: '800px',
+              zIndex: 20
+            }}>
+              {state.error && (
+                <Alert
+                  message={state.error}
+                  type="error"
+                  showIcon
+                  closable
+                  style={{ marginBottom: '16px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#fca5a5' }}
+                />
+              )}
+              
               <div style={{
-                backgroundColor: '#fff',
-                borderRadius: '16px',
-                padding: '16px',
-                boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
-                border: '1px solid #f0f0f0'
+                backgroundColor: '#1e293b', // slate-800
+                borderRadius: '30px',
+                padding: '8px 16px',
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+                border: '1px solid #334155', // slate-700
+                display: 'flex',
+                alignItems: 'flex-end',
+                gap: '12px'
               }}>
-                {/* <Space.Compact style={{ width: '100%', marginBottom: '12px' }}>
-                  <Select
-                    value={selectedExample}
-                    onChange={setSelectedExample}
-                    style={{ flex: 1 }}
-                    placeholder="选择示例对话"
-                    variant="borderless"
-                    options={[
-                      { value: '-', label: '-' },
-                      ...EXAMPLE_MESSAGES.map(ex => ({
-                        value: ex.text,
-                        label: ex.display
-                      }))
-                    ]}
-                  />
-                </Space.Compact> */}
-
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
-                  <Upload
-                    beforeUpload={handleUpload}
-                    showUploadList={false}
-                    multiple
-                    disabled={uploading || state.loading}
-                  >
-                    <Button 
-                      icon={<PaperClipOutlined />} 
-                      loading={uploading}
-                      size="large"
-                      type="text"
-                      style={{ marginBottom: '4px' }}
-                    />
-                  </Upload>
-                  <TextArea
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    onPaste={(e) => {
-                      const items = e.clipboardData.items;
-                      for (let i = 0; i < items.length; i++) {
-                        if (items[i].kind === 'file') {
-                          const file = items[i].getAsFile();
-                          if (file) handleUpload(file);
-                        }
-                      }
+                <Upload
+                  beforeUpload={handleUpload}
+                  showUploadList={false}
+                  multiple
+                  disabled={uploading || state.loading}
+                >
+                  <Button 
+                    icon={<PaperClipOutlined style={{ fontSize: '20px' }} />} 
+                    loading={uploading}
+                    type="text"
+                    style={{ 
+                      color: '#94a3b8', 
+                      width: '40px', 
+                      height: '40px',
+                      marginBottom: '2px'
                     }}
-                    placeholder={`输入你想对 ${state.config?.agent_info.name} 说的话... (支持粘贴/拖拽文件)`}
-                    autoSize={{ minRows: 1, maxRows: 6 }}
-                    variant="borderless"
-                    style={{ flex: 1, resize: 'none', padding: '8px 0' }}
-                    disabled={state.responding || state.loading}
                   />
-                  <Button
-                    type="primary"
-                    icon={<SendOutlined />}
-                    onClick={handleSendMessage}
-                    loading={state.responding || state.loading}
-                    disabled={!inputValue.trim()}
-                    size="large"
-                    shape="circle"
-                    style={{ marginBottom: '4px' }}
-                  />
-                </div>
+                </Upload>
+                
+                <TextArea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  onPaste={(e) => {
+                    const items = e.clipboardData.items;
+                    for (let i = 0; i < items.length; i++) {
+                      if (items[i].kind === 'file') {
+                        const file = items[i].getAsFile();
+                        if (file) handleUpload(file);
+                      }
+                    }
+                  }}
+                  placeholder={t.inputPlaceholder}
+                  autoSize={{ minRows: 1, maxRows: 6 }}
+                  variant="borderless"
+                  style={{ 
+                    flex: 1, 
+                    resize: 'none', 
+                    padding: '10px 0',
+                    fontSize: '16px',
+                    color: '#f1f5f9',
+                    background: 'transparent'
+                  }}
+                  disabled={state.responding || state.loading}
+                />
+                
+                <Button
+                  type="primary"
+                  icon={<SendOutlined />}
+                  onClick={() => handleSendMessage()}
+                  loading={state.responding || state.loading}
+                  disabled={!inputValue.trim()}
+                  className="send-btn"
+                  style={{ marginBottom: '4px' }}
+                />
               </div>
             </div>
           </div>
 
           <Sider 
-            width={300} 
-            style={{ background: '#fff', borderLeft: '1px solid #f0f0f0' }}
-            collapsible
-            reverseArrow
+            width={340} 
             theme="light"
+            style={{ 
+              borderLeft: '1px solid rgba(51, 65, 85, 0.5)', // border-slate-700
+              background: '#0f172a', // slate-900
+              padding: '16px' // p-4
+            }}
           >
-            <div style={{ padding: '16px', height: '100%', overflowY: 'auto' }}>
-              <ParamPanel />
-              <Divider />
-              <FilePanel />
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              {/* Segmented Control */}
+              <div style={{ 
+                width: '100%', 
+                backgroundColor: '#1e293b', // slate-800
+                padding: '4px', 
+                borderRadius: '8px', 
+                display: 'flex', 
+                marginBottom: '24px' 
+              }}>
+                <div 
+                  onClick={() => setActiveTab('params')}
+                  style={{
+                    flex: 1,
+                    textAlign: 'center',
+                    padding: '6px 0',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    backgroundColor: activeTab === 'params' ? '#2563eb' : 'transparent', // blue-600
+                    color: activeTab === 'params' ? 'white' : '#94a3b8', // slate-400
+                    boxShadow: activeTab === 'params' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
+                  }}
+                >
+                  {t.parameters}
+                </div>
+                <div 
+                  onClick={() => setActiveTab('files')}
+                  style={{
+                    flex: 1,
+                    textAlign: 'center',
+                    padding: '6px 0',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    backgroundColor: activeTab === 'files' ? '#2563eb' : 'transparent',
+                    color: activeTab === 'files' ? 'white' : '#94a3b8',
+                    boxShadow: activeTab === 'files' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
+                  }}
+                >
+                  {t.files}
+                </div>
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {activeTab === 'params' ? <ParamPanel /> : <FilePanel />}
+              </div>
             </div>
           </Sider>
         </Content>

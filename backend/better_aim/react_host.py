@@ -299,6 +299,14 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                         await websocket.send_text(json.dumps(response))
             except Exception as e:
                 print(f"Error during agent execution: {e}")
+                import traceback
+                traceback.print_exc()
+                
+                # Try to extract more info if it's an ExceptionGroup (Python 3.11+)
+                if hasattr(e, 'exceptions'):
+                    for i, exc in enumerate(e.exceptions):
+                        print(f"Sub-exception {i+1}: {exc}")
+                        
                 await websocket.send_text(json.dumps({
                     "type": "error",
                     "message": f"Agent execution error: {str(e)}. Please try again."

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  Card,
   Select,
   Radio,
   Button,
@@ -16,26 +15,24 @@ import {
   Tooltip
 } from 'antd';
 import {
-  ToolOutlined,
-  SettingOutlined,
-  EditOutlined,
   CheckOutlined,
-  InfoCircleOutlined,
-  ThunderboltOutlined
+  InfoCircleOutlined
 } from '@ant-design/icons';
 // import JSONInput from 'react-json-editor-ajrm';
 // import locale from 'react-json-editor-ajrm/locale/en';
 
 import { useApp } from '../../contexts/AppContext';
 import type { ToolSchema, PropertySchema, ExecutionMode, ModifyMode } from '../../types';
+import { translations } from '../../utils/i18n';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 // const { Panel } = Collapse;
 const { Option } = Select;
 const { TextArea } = Input;
 
 function ParamPanel() {
   const { state, actions } = useApp();
+  const t = translations[state.language];
   const [form] = Form.useForm();
   const [currentSchema, setCurrentSchema] = useState<ToolSchema | null>(null);
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('Local');
@@ -217,81 +214,96 @@ function ParamPanel() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <Title level={5} style={{ margin: 0 }}>
-          <SettingOutlined style={{ marginRight: '8px' }} />
-          修改运行参数
-        </Title>
-        {currentSchema && (
-          <Tooltip title="工具正在等待参数确认">
-            <ThunderboltOutlined style={{ color: '#fa8c16' }} />
-          </Tooltip>
-        )}
+      {/* Execution Mode Section */}
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <Text style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {t.executionMode}
+          </Text>
+        </div>
+        <Select
+          value={executionMode}
+          onChange={handleExecutionModeChange}
+          style={{ width: '100%' }}
+          className="glass-select-dense"
+          dropdownStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)' }}
+        >
+          <Option value="Local">{t.localExecution}</Option>
+          <Option value="Bohr">{t.bohriumCloud}</Option>
+        </Select>
       </div>
 
-      <Space direction="vertical" style={{ width: '100%', marginBottom: '16px' }}>
-        <div>
-          <Text strong style={{ display: 'block', marginBottom: '4px' }}>
-            工具执行模式
+      {/* Bohrium Config (Conditional) */}
+      {executionMode === 'Bohr' && (
+        <div className="glass-card" style={{ padding: '12px', marginBottom: '24px', background: 'rgba(30, 41, 59, 0.5)' }}>
+          <Text style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>
+            {t.bohrConfig}
           </Text>
-          <Select
-            value={executionMode}
-            onChange={handleExecutionModeChange}
-            style={{ width: '100%' }}
-            size="small"
-          >
-            <Option value="Local">
-              <Tooltip title="在agent部署服务器运行">
-                在线运行
-              </Tooltip>
-            </Option>
-            <Option value="Bohr">
-              <Tooltip title="作为任务提交到Bohrium">
-                玻尔模式
-              </Tooltip>
-            </Option>
-          </Select>
+          <Space direction="vertical" style={{ width: '100%', gap: '8px' }}>
+            <Input
+              placeholder="Username"
+              size="small"
+              value={bohrConfig.username}
+              onChange={(e) => handleBohrConfigChange('username', e.target.value)}
+              className="glass-input-dense"
+            />
+            <Input.Password
+              placeholder="Password"
+              size="small"
+              value={bohrConfig.password}
+              onChange={(e) => handleBohrConfigChange('password', e.target.value)}
+              className="glass-input-dense"
+            />
+            <Input
+              placeholder="Project ID"
+              size="small"
+              value={bohrConfig.project_id}
+              onChange={(e) => handleBohrConfigChange('project_id', e.target.value)}
+              className="glass-input-dense"
+            />
+          </Space>
         </div>
+      )}
 
-        {executionMode === 'Bohr' && (
-          <Card size="small" title="玻尔配置" styles={{ body: { padding: '12px' } }}>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Input
-                placeholder="Bohrium用户名"
-                size="small"
-                value={bohrConfig.username}
-                onChange={(e) => handleBohrConfigChange('username', e.target.value)}
-              />
-              <Input.Password
-                placeholder="Bohrium密码"
-                size="small"
-                value={bohrConfig.password}
-                onChange={(e) => handleBohrConfigChange('password', e.target.value)}
-              />
-              <Input
-                placeholder="项目ID"
-                size="small"
-                value={bohrConfig.project_id}
-                onChange={(e) => handleBohrConfigChange('project_id', e.target.value)}
-              />
-            </Space>
-          </Card>
-        )}
-      </Space>
-
-      <Divider />
-
-      <div style={{ marginBottom: '16px' }}>
-        <Text strong style={{ display: 'block', marginBottom: '8px' }}>
-          参数修改方式
+      {/* Agent Status Bar */}
+      <div style={{ 
+        backgroundColor: 'rgba(30, 41, 59, 0.5)', // bg-slate-800/50
+        border: '1px solid rgba(51, 65, 85, 0.5)', // border-slate-700/50
+        borderRadius: '8px',
+        padding: '10px 12px',
+        marginBottom: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px'
+      }}>
+        <div style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: state.responding ? '#eab308' : '#22c55e', // yellow-500 : green-500
+          boxShadow: state.responding ? '0 0 8px rgba(234, 179, 8, 0.4)' : '0 0 8px rgba(34, 197, 94, 0.4)'
+        }} />
+        <Text style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 500 }}>
+          {t.agentStatus}: <span style={{ color: '#cbd5e1' }}>{state.responding ? t.statusWorking : t.statusIdle}</span>
         </Text>
-        <Radio.Group value={modifyMode} onChange={handleModifyModeChange} size="small">
-          <Radio.Button value="individual">
-            <EditOutlined /> 逐个修改
-          </Radio.Button>
-          <Radio.Button value="json">
-            <ToolOutlined /> 使用JSON
-          </Radio.Button>
+      </div>
+
+      <Divider style={{ borderColor: 'rgba(255,255,255,0.05)', margin: '24px 0' }} />
+
+      {/* Parameter Modification Header & Toggle */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <Text style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {t.paramModifyMode}
+        </Text>
+        <Radio.Group 
+          value={modifyMode} 
+          onChange={handleModifyModeChange} 
+          size="small" 
+          buttonStyle="solid"
+          className="dense-toggle"
+        >
+          <Radio.Button value="individual" style={{ fontSize: '11px', padding: '0 8px' }}>{t.individual}</Radio.Button>
+          <Radio.Button value="json" style={{ fontSize: '11px', padding: '0 8px' }}>{t.json}</Radio.Button>
         </Radio.Group>
       </div>
 
@@ -312,16 +324,13 @@ function ParamPanel() {
               style={{ marginBottom: '16px' }}
             />
           )}
-          <Card
-            title={`工具: ${currentSchema.name}`}
-            size="small"
-            styles={{ body: { padding: '16px' } }}
-            extra={
+          <div className="glass-card" style={{ padding: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <Text strong>工具: {currentSchema.name}</Text>
               <Tooltip title={currentSchema.description}>
                 <InfoCircleOutlined />
               </Tooltip>
-            }
-          >
+            </div>
           {modifyMode === 'individual' ? (
             <Form
               form={form}
@@ -370,7 +379,7 @@ function ParamPanel() {
                   loading={submitting}
                   block
                 >
-                  提交修改
+                  {t.submit}
                 </Button>
               </Form.Item>
             </Form>
@@ -390,16 +399,16 @@ function ParamPanel() {
                 loading={submitting}
                 block
               >
-                提交JSON
+                {t.submitJson}
               </Button>
             </Space>
           )}
-        </Card>
+          </div>
         </>
       ) : (
         <Alert
-          message="等待工具调用"
-          description="当Agent调用MCP工具时，此处会显示工具参数供您确认或修改。"
+          message={t.waitingForTool}
+          description={t.waitingForToolDesc}
           type="info"
           showIcon
           style={{ fontSize: '12px' }}

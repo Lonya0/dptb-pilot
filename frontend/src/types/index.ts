@@ -21,6 +21,7 @@ export interface FileInfo {
   name: string;
   path: string;
   size: number;
+  updated_at?: number;
 }
 
 // 工具参数Schema类型
@@ -109,4 +110,5 @@ export interface AppState {
   error: string | null;
   responding: boolean; // Agent是否正在响应
   pendingToolResponse: string; // 待处理的工具响应内容
+  language: 'zh' | 'en';
 }
