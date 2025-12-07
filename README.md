@@ -32,6 +32,8 @@
 *   **Python 3.10+**
 *   **Node.js & npm**
 *   **Git**
+*   **DeePTB**: This pilot agent is designed to work with the [DeePTB](https://github.com/deepmodeling/DeePTB) package.
+    > **Important**: `dptb-pilot` and `DeePTB` MUST be installed in the **same Python environment** to ensure the agent can correctly invoke DeePTB tools.
 
 ### 1. Installation
 
