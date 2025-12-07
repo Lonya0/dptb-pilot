@@ -171,6 +171,8 @@ const AppContext = createContext<{
     switchToChatSession: (chatId: string) => Promise<void>;
     modifyParameters: (modifiedSchema: any) => Promise<void>;
     getCurrentSchema: () => Promise<any>;
+    deleteChatSession: (chatId: string) => Promise<ChatSession[] | undefined>;
+    updateSessionTitle: (chatId: string, title: string) => Promise<void>;
   };
 } | null>(null);
 
@@ -186,9 +188,69 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const config = await apiService.getConfig();
         dispatch({ type: 'SET_CONFIG', payload: config });
         dispatch({ type: 'SET_ERROR', payload: null }); // 清除之前的错误
+
+        // 尝试自动登录
+        const savedUserId = localStorage.getItem('last_session_id');
+        if (savedUserId) {
+          try {
+            console.log('尝试自动登录:', savedUserId);
+            await apiService.login({ session_id: savedUserId });
+            dispatch({ type: 'LOGIN_SUCCESS', payload: savedUserId });
+            
+            // 加载用户数据
+            // 注意：这里我们不能直接调用actions，因为actions还没定义
+            // 我们直接调用apiService并dispatch
+            
+            // 1. 加载会话
+            try {
+              const { sessions } = await apiService.getUserSessions(savedUserId);
+              if (sessions && sessions.length > 0) {
+                dispatch({ type: 'SET_CHAT_SESSIONS', payload: sessions });
+                
+                // 恢复上次活跃的会话
+                const lastActiveChatId = localStorage.getItem(`last_active_chat_${savedUserId}`);
+                let targetSession = null;
+                
+                if (lastActiveChatId) {
+                  targetSession = sessions.find((s: any) => s.chat_id === lastActiveChatId);
+                }
+                
+                if (!targetSession) {
+                  targetSession = sessions[0];
+                }
+                
+                if (targetSession) {
+                  dispatch({ 
+                    type: 'SET_CURRENT_CHAT_SESSION', 
+                    payload: {
+                      chat_id: targetSession.chat_id,
+                      user_id: targetSession.user_id,
+                      title: targetSession.title,
+                      history: targetSession.history,
+                    } 
+                  });
+                }
+              }
+            } catch (err) {
+              console.warn('自动登录加载会话失败:', err);
+            }
+
+            // 2. 加载文件
+            try {
+              const { files } = await apiService.getFiles(savedUserId);
+              dispatch({ type: 'UPDATE_FILES', payload: files });
+            } catch (err) {
+              console.warn('自动登录加载文件失败:', err);
+            }
+
+          } catch (loginError) {
+            console.error('自动登录失败:', loginError);
+            // 登录失败不清除localStorage，让用户在登录页看到ID并重试
+          }
+        }
+
       } catch (error) {
         console.error('初始化应用失败:', error);
-        // 不显示错误给用户，因为这是初始化阶段
         dispatch({ type: 'SET_ERROR', payload: null });
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
@@ -269,6 +331,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [state.chatSessions, state.userId]);
+
+  // 保存当前活跃的会话ID
+  useEffect(() => {
+    if (state.userId && state.currentChatSession) {
+      localStorage.setItem(`last_active_chat_${state.userId}`, state.currentChatSession.chat_id);
+    }
+  }, [state.currentChatSession, state.userId]);
 
   // Actions
   const actions = {
@@ -552,6 +621,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error('获取参数schema失败:', error);
         return null;
+      }
+    },
+
+    deleteChatSession: async (chatId: string) => {
+      if (!state.userId) return;
+
+      try {
+        const updatedSessions = state.chatSessions.filter(session => session.chat_id !== chatId);
+        
+        // Update state
+        dispatch({ type: 'SET_CHAT_SESSIONS', payload: updatedSessions });
+        
+        // Sync to backend
+        await apiService.saveUserSessions(state.userId, updatedSessions);
+        
+        // Sync to localStorage
+        localStorage.setItem(`chat_sessions_${state.userId}`, JSON.stringify(updatedSessions));
+        
+        return updatedSessions;
+      } catch (error) {
+        console.error('删除会话失败:', error);
+        message.error('同步删除到服务器失败');
+        throw error;
+      }
+    },
+
+    updateSessionTitle: async (chatId: string, title: string) => {
+      if (!state.userId) return;
+
+      try {
+        const updatedSessions = state.chatSessions.map(session => 
+          session.chat_id === chatId ? { ...session, title } : session
+        );
+        
+        // Update state
+        dispatch({ type: 'SET_CHAT_SESSIONS', payload: updatedSessions });
+        
+        // Sync to backend
+        await apiService.saveUserSessions(state.userId, updatedSessions);
+        
+        // Sync to localStorage
+        localStorage.setItem(`chat_sessions_${state.userId}`, JSON.stringify(updatedSessions));
+      } catch (error) {
+        console.error('更新标题失败:', error);
+        message.error('同步标题到服务器失败');
+        throw error;
       }
     },
   };

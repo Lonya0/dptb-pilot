@@ -252,11 +252,16 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
             return
 
         agent = active_agents[session_id]
-        session = await session_service.create_session(
-            app_name=agent_info["name"],
-            user_id=session_id[:4],
-            session_id=session_id
-        )
+        
+        try:
+            session = await session_service.create_session(
+                app_name=agent_info["name"],
+                user_id=session_id[:4],
+                session_id=session_id
+            )
+        except Exception as e:
+            print(f"ERROR: Failed to create session: {e}")
+            raise
 
         runner = Runner(
             agent=agent,
@@ -269,7 +274,6 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
             message_data = json.loads(data)
             user_message = message_data.get("message", "")
             chat_id = message_data.get("chat_id")
-            print(f"DEBUG: WebSocket received message. User: {session_id}, Chat ID: {chat_id}")
 
             if not user_message.strip():
                 await websocket.send_text(json.dumps({
@@ -319,6 +323,15 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
             update_session_history(session_id, chat_id, history, work_path)
 
     except WebSocketDisconnect:
+        manager.disconnect(session_id)
+    except Exception as e:
+        print(f"CRITICAL ERROR in websocket_chat: {e}")
+        import traceback
+        traceback.print_exc()
+        try:
+            await websocket.close(code=1011) # Internal Error
+        except:
+            pass
         manager.disconnect(session_id)
 
 

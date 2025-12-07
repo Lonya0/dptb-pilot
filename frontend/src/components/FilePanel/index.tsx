@@ -9,21 +9,26 @@ import {
   Spin,
   Card,
   Collapse,
-  Badge
+  Badge,
+  Modal,
+  Dropdown
 } from 'antd';
 import {
   DownloadOutlined,
   DeleteOutlined,
+  MoreOutlined,
   ReloadOutlined,
+  CopyOutlined,
   FileOutlined,
+  FileTextOutlined,
   FileImageOutlined,
   CodeOutlined,
-  FileTextOutlined,
   ExperimentOutlined
 } from '@ant-design/icons';
 
 import { useApp } from '../../contexts/AppContext';
 import type { FileInfo } from '../../types';
+import type { MenuProps } from 'antd';
 
 const { Title, Text } = Typography;
 const { Panel } = Collapse;
@@ -31,37 +36,48 @@ const { Panel } = Collapse;
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 function getFileIcon(filename: string) {
   const ext = filename.split('.').pop()?.toLowerCase();
-  if (['png', 'jpg', 'jpeg', 'gif'].includes(ext || '')) return <FileImageOutlined style={{ color: '#fa8c16' }} />;
-  if (['json', 'yaml', 'yml', 'toml'].includes(ext || '')) return <CodeOutlined style={{ color: '#52c41a' }} />;
-  if (['vasp', 'cif', 'xyz'].includes(ext || '') || filename.includes('POSCAR') || filename.includes('CONTCAR')) return <ExperimentOutlined style={{ color: '#722ed1' }} />;
-  return <FileTextOutlined style={{ color: '#1677ff' }} />;
+  if (['png', 'jpg', 'jpeg', 'svg', 'bmp'].includes(ext || '')) {
+    return <FileImageOutlined style={{ color: '#fa8c16' }} />;
+  }
+  if (['json', 'yaml', 'yml', 'xml'].includes(ext || '')) {
+    return <CodeOutlined style={{ color: '#722ed1' }} />;
+  }
+  if (['py', 'js', 'ts', 'tsx', 'jsx', 'c', 'cpp', 'h'].includes(ext || '')) {
+    return <CodeOutlined style={{ color: '#1890ff' }} />;
+  }
+  if (['xyz', 'cif', 'poscar', 'vasp', 'xsf'].includes(ext || '')) {
+    return <ExperimentOutlined style={{ color: '#52c41a' }} />;
+  }
+  return <FileTextOutlined style={{ color: '#8c8c8c' }} />;
 }
 
 function FilePanel() {
   const { state, actions } = useApp();
   
-  // Auto-refresh every 5 seconds
   useEffect(() => {
-    if (!state.userId) return;
-    
-    const timer = setInterval(() => {
-      actions.loadFiles().catch(err => console.error("Auto-refresh failed", err));
-    }, 5000);
-    
-    return () => clearInterval(timer);
-  }, [state.userId, actions]);
+    if (state.isAuthenticated && state.userId && !state.files.length) {
+      actions.loadFiles();
+    }
+  }, [state.isAuthenticated, state.userId]);
+
+  const handleRefresh = () => {
+    actions.loadFiles();
+  };
 
   const handleDownload = (file: FileInfo) => {
-    if (!state.userId) return;
-
+    // 构建下载链接
+    // 注意：这里假设后端API提供了下载端点 /api/download/{session_id}/{filename}
+    // 实际项目中应该使用 apiService.getFileDownloadUrl
     const downloadUrl = `/api/download/${state.userId}/${file.name}`;
+    
+    // 创建临时a标签触发下载
     const link = document.createElement('a');
     link.href = downloadUrl;
     link.download = file.name;
@@ -70,21 +86,21 @@ function FilePanel() {
     document.body.removeChild(link);
   };
 
-  const handleDelete = async (_file: FileInfo) => {
-    message.info('删除功能尚未实现，请联系管理员');
+  const handleDelete = async (file: FileInfo) => {
+    // 目前后端API似乎没有提供删除单个文件的接口，或者我没看到
+    // 暂时显示一个提示
+    message.info('暂不支持删除文件功能');
+    
+    // 如果有API支持:
+    // try {
+    //   await actions.deleteFile(file.name);
+    //   message.success('文件已删除');
+    // } catch (error) {
+    //   message.error('删除失败');
+    // }
   };
 
-  const handleRefresh = async () => {
-    if (!state.userId) return;
-    try {
-      await actions.loadFiles();
-      message.success('文件列表已刷新');
-    } catch (error) {
-      message.error('刷新文件列表失败');
-    }
-  };
-
-  // Group files
+  // 对文件进行分类
   const groupedFiles = {
     structures: [] as FileInfo[],
     images: [] as FileInfo[],
@@ -92,21 +108,65 @@ function FilePanel() {
     others: [] as FileInfo[]
   };
 
-  (state.files || []).forEach(file => {
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    if (['vasp', 'cif', 'xyz'].includes(ext || '') || file.name.includes('POSCAR') || file.name.includes('CONTCAR')) {
-      groupedFiles.structures.push(file);
-    } else if (['png', 'jpg', 'jpeg', 'gif'].includes(ext || '')) {
-      groupedFiles.images.push(file);
-    } else if (['json', 'yaml', 'yml', 'toml'].includes(ext || '')) {
-      groupedFiles.configs.push(file);
-    } else {
-      groupedFiles.others.push(file);
-    }
-  });
+  if (state.files) {
+    state.files.forEach(file => {
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      if (['xyz', 'cif', 'poscar', 'vasp', 'xsf'].includes(ext)) {
+        groupedFiles.structures.push(file);
+      } else if (['png', 'jpg', 'jpeg', 'svg', 'bmp'].includes(ext)) {
+        groupedFiles.images.push(file);
+      } else if (['json', 'yaml', 'yml', 'xml', 'toml', 'ini'].includes(ext)) {
+        groupedFiles.configs.push(file);
+      } else {
+        groupedFiles.others.push(file);
+      }
+    });
+  }
 
-  // Sort by modification time (if available) or name
-  const sortFiles = (files: FileInfo[]) => files.sort((a, b) => b.name.localeCompare(a.name)); // Simple name sort for now as we don't have mtime in FileInfo yet
+  const sortFiles = (files: FileInfo[]) => {
+    return [...files].sort((a, b) => {
+      // 首先按时间倒序
+      if (b.updated_at !== a.updated_at) {
+        return (b.updated_at || 0) - (a.updated_at || 0);
+      }
+      // 然后按名称排序
+      return a.name.localeCompare(b.name);
+    });
+  };
+
+
+  const getFileActions = (file: FileInfo): MenuProps['items'] => [
+    {
+      key: 'copy',
+      label: '复制文件名',
+      icon: <CopyOutlined />,
+      onClick: () => {
+        navigator.clipboard.writeText(file.name);
+        message.success('文件名已复制');
+      }
+    },
+    {
+      key: 'download',
+      label: '下载文件',
+      icon: <DownloadOutlined />,
+      onClick: () => handleDownload(file)
+    },
+    {
+      key: 'delete',
+      label: '删除文件',
+      icon: <DeleteOutlined />,
+      danger: true,
+      onClick: () => {
+        Modal.confirm({
+          title: '确定要删除这个文件吗？',
+          content: '删除后无法恢复',
+          okText: '删除',
+          okType: 'danger',
+          onOk: () => handleDelete(file)
+        });
+      }
+    }
+  ];
 
   const renderFileList = (files: FileInfo[]) => (
     <List
@@ -116,34 +176,18 @@ function FilePanel() {
         <List.Item
           style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0' }}
           actions={[
-            <Tooltip title="下载" key="download">
-              <Button
-                type="text"
-                icon={<DownloadOutlined />}
-                onClick={() => handleDownload(file)}
-                size="small"
-              />
-            </Tooltip>,
-            <Popconfirm
-              title="确定要删除这个文件吗？"
-              onConfirm={() => handleDelete(file)}
-              key="delete"
-            >
-              <Tooltip title="删除">
-                <Button
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  size="small"
-                />
-              </Tooltip>
-            </Popconfirm>
+            <Dropdown menu={{ items: getFileActions(file) }} trigger={['click']} placement="bottomRight">
+              <Button type="text" size="small" icon={<MoreOutlined style={{ fontSize: '16px' }} />} />
+            </Dropdown>
           ]}
         >
           <List.Item.Meta
             avatar={getFileIcon(file.name)}
             title={
-              <Text style={{ fontSize: '13px' }} title={file.name} ellipsis>
+              <Text 
+                style={{ fontSize: '13px', wordBreak: 'break-all', userSelect: 'text' }}
+                copyable={{ text: file.name, tooltips: ['复制文件名', '复制成功'] }}
+              >
                 {file.name}
               </Text>
             }

@@ -160,7 +160,11 @@ export class WebSocketService {
       if (API_BASE_URL.startsWith('/')) {
         // 开发环境使用代理
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
+        let host = window.location.host;
+        // 如果host是0.0.0.0，替换为127.0.0.1，因为浏览器通常不支持连接到0.0.0.0的WebSocket
+        if (host.startsWith('0.0.0.0')) {
+          host = host.replace('0.0.0.0', '127.0.0.1');
+        }
         wsUrl = `${protocol}//${host}/ws/chat/${sessionId}`;
       } else {
         // 生产环境使用完整URL

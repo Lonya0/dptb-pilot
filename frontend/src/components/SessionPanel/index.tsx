@@ -58,29 +58,21 @@ function SessionPanel() {
     setEditingTitle(currentTitle);
   };
 
-  const saveSessionTitle = (chatId: string) => {
+  const saveSessionTitle = async (chatId: string) => {
     if (!editingTitle.trim()) {
       message.error('聊天会话标题不能为空');
       return;
     }
 
-    const updatedSessions = state.chatSessions.map(session =>
-      session.chat_id === chatId
-        ? { ...session, title: editingTitle.trim() }
-        : session
-    );
-
-    // 更新状态并保存到localStorage
-    if (state.userId) {
-      try {
-        localStorage.setItem(`chat_sessions_${state.userId}`, JSON.stringify(updatedSessions));
-      } catch (error) {
-        console.error('保存聊天会话失败:', error);
-      }
+    try {
+      await actions.updateSessionTitle(chatId, editingTitle.trim());
+      message.success('聊天会话标题已更新');
+    } catch (error) {
+      // Error handled in action
     }
+    
     setEditingSession(null);
     setEditingTitle('');
-    message.success('聊天会话标题已更新');
   };
 
   // const cancelEditTitle = () => {
@@ -94,27 +86,24 @@ function SessionPanel() {
       content: '确定要删除这个聊天会话吗？删除后无法恢复。',
       okText: '删除',
       okType: 'danger',
-      onOk: () => {
-        const updatedSessions = state.chatSessions.filter(session => session.chat_id !== chatId);
+      onOk: async () => {
+        try {
+          const updatedSessions = await actions.deleteChatSession(chatId);
+          
+          message.success('聊天会话已删除');
 
-        // 保存到localStorage
-        if (state.userId) {
-          try {
-            localStorage.setItem(`chat_sessions_${state.userId}`, JSON.stringify(updatedSessions));
-          } catch (error) {
-            console.error('保存聊天会话失败:', error);
+          // 如果删除的是当前聊天会话
+          if (chatId === state.currentChatSession?.chat_id) {
+            if (updatedSessions && updatedSessions.length > 0) {
+              // 如果还有其他会话，切换到第一个
+              actions.switchToChatSession(updatedSessions[0].chat_id);
+            } else {
+              // 如果没有会话了，创建一个新的
+              actions.createNewChatSession();
+            }
           }
-        }
-
-        // 通过dispatch更新状态
-        // const { dispatch } = require('../../contexts/AppContext');
-        dispatch({ type: 'SET_CHAT_SESSIONS', payload: updatedSessions });
-
-        message.success('聊天会话已删除');
-
-        // 如果删除的是当前聊天会话，创建一个新的
-        if (chatId === state.currentChatSession?.chat_id) {
-          actions.createNewChatSession();
+        } catch (error) {
+          // Error handled in action
         }
       }
     });
