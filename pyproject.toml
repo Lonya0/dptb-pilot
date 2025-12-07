@@ -17,7 +17,11 @@ dependencies = [
     "chromadb",
     "sentence-transformers",
     "opentelemetry-sdk<1.39.0",
-    "pypdf"
+    "pypdf",
+    "mp-api<0.42.0",
+    "emmet-core<0.84.0",
+    "typing-extensions",
+    "pymatgen"
 ]
 
 [project.scripts]

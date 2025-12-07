@@ -69,12 +69,18 @@ def band_with_sk_model(
         if not img_path.exists():
              raise RuntimeError("Band calculation finished but no image generated.")
 
+        import time
+        timestamp = int(time.time())
+        filename = f"band_{timestamp}.png"
+        output_img_path = work_dir / filename
+        
         plt.figure(figsize=(10, 8))
         img = mpimg.imread(str(img_path))
         plt.imshow(img)
         plt.axis('off')
-        output_img_path = work_dir / "band.png"
         plt.savefig(output_img_path)
         plt.close()
+        
+        print(f"Band structure saved to {output_img_path}")
 
-    return {"band_path": str(work_dir)}
+    return {"band_path": str(work_dir), "image_file": filename}

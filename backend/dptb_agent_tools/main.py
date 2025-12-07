@@ -22,6 +22,7 @@ def load_tools():
     import dptb_agent_tools.modules.visualize_tool
     import dptb_agent_tools.modules.visualize_bz_tool
     import dptb_agent_tools.modules.rag_tool
+    import dptb_agent_tools.modules.mp_tool
     
     # The following lines were part of the original dynamic loading loop
     # and are now commented out or removed as they are no longer applicable
