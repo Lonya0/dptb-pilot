@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="frontend/public/pilot_logo_black.png" alt="DeepTB Pilot Logo" width="500"/>
-  <h3>AI Agent for DeepTB</h3>
+  <img src="frontend/public/pilot_logo_black.png" alt="DeePTB Pilot Logo" width="500"/>
+  <h3>AI Agent for DeePTB</h3>
   <p>An intelligent copilot for the DeePTB software package, integrating LLM capabilities with material science tools.</p>
 </div>
 
@@ -8,14 +8,14 @@
 
 ## 📖 Introduction
 
-**DeepTB Pilot** is a sophisticated AI agent designed to assist researchers in using the DeepTB software. It combines a React-based frontend with a Python backend powered by LLMs and the Model Context Protocol (MCP).
+**DeePTB Pilot** is a sophisticated AI agent designed to assist researchers in using the DeePTB software. It combines a React-based frontend with a Python backend powered by LLMs and the Model Context Protocol (MCP).
 
 ### ✨ Key Features
 
-*   **Interactive Chat**: Natural language interface to query DeepTB knowledge and perform tasks.
-*   **RAG System**: Retrieval-Augmented Generation for accurate answers based on DeepTB documentation.
+*   **Interactive Chat**: Natural language interface to query DeePTB knowledge and perform tasks.
+*   **RAG System**: Retrieval-Augmented Generation for accurate answers based on DeePTB documentation.
 *   **Structure Visualization**: Interactive 3D visualization of crystal structures and Brillouin zones.
-*   **MCP Tools**: Extensible tool system for file operations, materials search (Materials Project), and DeepTB calculations.
+*   **MCP Tools**: Extensible tool system for file operations, materials search (Materials Project), and DeePTB calculations.
 *   **Session Management**: Persistent chat sessions and history.
 
 ## 🛠️ Architecture
