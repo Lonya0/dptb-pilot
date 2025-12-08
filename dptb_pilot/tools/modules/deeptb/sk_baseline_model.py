@@ -79,7 +79,7 @@ def band_with_baseline_model(
         img = mpimg.imread(str(img_path))
         plt.imshow(img)
         plt.axis('off')
-        plt.savefig(output_img_path)
+        plt.savefig(output_img_path, bbox_inches='tight', pad_inches=0.0)
         plt.close() # Close figure to free memory
         
         print(f"Band structure saved to {output_img_path}")
