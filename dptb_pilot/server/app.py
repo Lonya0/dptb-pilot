@@ -21,6 +21,9 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
+from dptb_pilot.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # 全局状态管理 (保持与原main.py兼容)
@@ -162,7 +165,7 @@ async def call_agent_async(query: str, runner: Runner, user_id: str, session_id:
 async def login(request: LoginRequest):
     """处理登录逻辑"""
     session_id = request.session_id
-    print(f"收到登录请求，会话ID: {session_id}")
+    logger.info(f"收到登录请求，会话ID: {session_id}")
 
     if not session_id:
         raise HTTPException(status_code=400, detail="请填写会话ID")
@@ -187,7 +190,7 @@ async def login(request: LoginRequest):
     # if session_id not in history_pool:
     #     history_pool[session_id] = load_chat_history(session_id, work_path)
 
-    print(f"登录成功，会话ID: {session_id}")
+    logger.info(f"登录成功，会话ID: {session_id}")
     return {"message": "登录成功", "session_id": session_id}
 
 
@@ -223,6 +226,7 @@ async def chat_with_agent(message: ChatMessage):
     if not chat_id:
         chat_id = session_id
         print(f"WARNING: No chat_id provided in HTTP request, falling back to user_id: {chat_id}")
+        logger.warning(f"No chat_id provided in HTTP request, falling back to user_id: {chat_id}")
 
     # 懒加载聊天历史
     if chat_id not in history_pool:
@@ -260,7 +264,7 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                 session_id=session_id
             )
         except Exception as e:
-            print(f"ERROR: Failed to create session: {e}")
+            logger.error(f"Failed to create session: {e}")
             raise
 
         runner = Runner(
@@ -298,14 +302,14 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                              
                         await websocket.send_text(json.dumps(response))
             except Exception as e:
-                print(f"Error during agent execution: {e}")
+                logger.error(f"Error during agent execution: {e}")
                 import traceback
                 traceback.print_exc()
                 
                 # Try to extract more info if it's an ExceptionGroup (Python 3.11+)
                 if hasattr(e, 'exceptions'):
                     for i, exc in enumerate(e.exceptions):
-                        print(f"Sub-exception {i+1}: {exc}")
+                        logger.error(f"Sub-exception {i+1}: {exc}")
                         
                 await websocket.send_text(json.dumps({
                     "type": "error",
@@ -317,7 +321,7 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
             if not chat_id:
                 # 如果没有 chat_id，尝试使用 session_id (兼容旧逻辑，但不推荐)
                 chat_id = session_id
-                print(f"WARNING: No chat_id provided, falling back to user_id: {chat_id}")
+                logger.warning(f"No chat_id provided, falling back to user_id: {chat_id}")
 
             # 懒加载聊天历史 (从 sessions.json)
             if chat_id not in history_pool:
@@ -333,7 +337,7 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
     except WebSocketDisconnect:
         manager.disconnect(session_id)
     except Exception as e:
-        print(f"CRITICAL ERROR in websocket_chat: {e}")
+        logger.critical(f"CRITICAL ERROR in websocket_chat: {e}")
         import traceback
         traceback.print_exc()
         try:
@@ -365,7 +369,7 @@ async def modify_parameters(request: ModifyParamsRequest):
 async def list_files(session_id: str):
     """获取会话文件列表"""
     session_dir = os.path.join(work_path, session_id, "files")
-    print(f"Listing files from: {session_dir}")
+    logger.info(f"Listing files from: {session_dir}")
     os.makedirs(session_dir, exist_ok=True)
 
     files = []
@@ -380,7 +384,7 @@ async def list_files(session_id: str):
                     "size": stats.st_size,
                     "updated_at": stats.st_mtime
                 })
-    print(f"Found {len(files)} files")
+    logger.info(f"Found {len(files)} files")
     return {"files": sorted(files, key=lambda x: x["name"])}
 
 
@@ -460,7 +464,7 @@ async def get_user_sessions(user_id: str):
     """获取用户的所有聊天会话"""
     user_dir = os.path.join(work_path, user_id)
     sessions_file = os.path.join(user_dir, "sessions.json")
-    print(f"Loading sessions for {user_id} from {sessions_file}")
+    logger.info(f"Loading sessions for {user_id} from {sessions_file}")
     
     if os.path.exists(sessions_file):
         try:
@@ -479,12 +483,12 @@ async def get_user_sessions(user_id: str):
                 # Update message count to reflect total messages (user + assistant)
                 session["message_count"] = len(formatted_history)
             
-            print(f"Loaded {len(sessions)} sessions")
+            logger.info(f"Loaded {len(sessions)} sessions")
             return {"sessions": sessions}
         except Exception as e:
-            print(f"Error loading sessions: {e}")
+            logger.error(f"Error loading sessions: {e}")
             return {"sessions": []}
-    print("Sessions file not found")
+    logger.warning("Sessions file not found")
     return {"sessions": []}
 
 
@@ -504,19 +508,19 @@ def load_session_history(user_id: str, chat_id: str, work_path: str) -> List[Lis
             if session.get("chat_id") == chat_id:
                 return session.get("history", [])
     except Exception as e:
-        print(f"Error loading session history: {e}")
+        logger.error(f"Error loading session history: {e}")
     
     return []
 
 
 def update_session_history(user_id: str, session_id: str, history: List[List[str]], work_path: str):
     """更新用户会话列表中的历史记录"""
-    print(f"DEBUG: Updating session history for User: {user_id}, Chat: {session_id}, History Len: {len(history)}")
+    logger.debug(f"Updating session history for User: {user_id}, Chat: {session_id}, History Len: {len(history)}")
     user_dir = os.path.join(work_path, user_id)
     sessions_file = os.path.join(user_dir, "sessions.json")
     
     if not os.path.exists(sessions_file):
-        print(f"DEBUG: Sessions file not found: {sessions_file}")
+        logger.warning(f"Sessions file not found: {sessions_file}")
         return
 
     try:
@@ -525,24 +529,24 @@ def update_session_history(user_id: str, session_id: str, history: List[List[str
         
         updated = False
         for session in sessions:
-            print(f"DEBUG: Checking session {session.get('chat_id')} against {session_id}")
+            # logger.debug(f"Checking session {session.get('chat_id')} against {session_id}")
             if session.get("chat_id") == session_id:
                 session["history"] = history
                 session["last_active"] = datetime.now().isoformat()
                 session["message_count"] = len(history)
                 updated = True
-                print(f"DEBUG: Found and updated session {session_id}")
+                logger.debug(f"Found and updated session {session_id}")
                 break
         
         if updated:
             with open(sessions_file, 'w', encoding='utf-8') as f:
                 json.dump(sessions, f, ensure_ascii=False, indent=2)
-            print("DEBUG: Successfully saved sessions.json")
+            logger.debug("Successfully saved sessions.json")
         else:
-            print(f"DEBUG: Chat ID {session_id} not found in sessions.json")
+            logger.warning(f"Chat ID {session_id} not found in sessions.json")
             
     except Exception as e:
-        print(f"Failed to update session history in sessions.json: {e}")
+        logger.error(f"Failed to update session history in sessions.json: {e}")
 
 
 @app.post("/api/user/{user_id}/sessions")
@@ -551,14 +555,14 @@ async def save_user_sessions(user_id: str, request: SaveSessionsRequest):
     user_dir = os.path.join(work_path, user_id)
     os.makedirs(user_dir, exist_ok=True)
     sessions_file = os.path.join(user_dir, "sessions.json")
-    print(f"Saving {len(request.sessions)} sessions for {user_id} to {sessions_file}")
+    logger.info(f"Saving {len(request.sessions)} sessions for {user_id} to {sessions_file}")
     
     try:
         with open(sessions_file, 'w', encoding='utf-8') as f:
             json.dump(request.sessions, f, ensure_ascii=False, indent=2)
         return {"message": "Sessions saved successfully"}
     except Exception as e:
-        print(f"Failed to save sessions: {e}")
+        logger.error(f"Failed to save sessions: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to save sessions: {str(e)}")
 
 
@@ -577,13 +581,13 @@ async def health_check():
 @app.get("/api/config")
 async def get_config():
     """获取应用配置信息"""
-    print("收到配置请求")
+    logger.info("收到配置请求")
     config = {
         "agent_info": agent_info,
         "mcp_server_url": mcp_server_url,
         "target_tools": target_tools
     }
-    print(f"返回配置信息: {config}")
+    logger.debug(f"返回配置信息: {config}")
     return config
 
 
@@ -607,9 +611,9 @@ def initialize_server(
     # 加载MCP工具信息
     try:
         tools_info = asyncio.run(get_mcp_server_tools(mcp_server_url))
-        print(f"✅ 成功加载 {len(tools_info)} 个MCP工具")
+        logger.info(f"✅ 成功加载 {len(tools_info)} 个MCP工具")
     except Exception as e:
-        print(f"⚠️  加载MCP工具失败: {e}")
+        logger.error(f"⚠️  加载MCP工具失败: {e}")
         tools_info = []
 
 

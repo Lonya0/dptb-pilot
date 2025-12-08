@@ -5,6 +5,9 @@ from google.adk.tools.tool_context import ToolContext
 from typing import Optional, Dict, Any
 
 
+from dptb_pilot.core.logger import get_logger
+
+logger = get_logger(__name__)
 async def tool_modify_guardrail(
         tool: BaseTool, args: Dict[str, Any], tool_context: ToolContext
 ) -> Optional[Dict]:
@@ -12,11 +15,11 @@ async def tool_modify_guardrail(
     global unmodified_schema_store
     tool_name = tool.name
     agent_name = tool_context.agent_name # Agent attempting the tool call
-    print(f"--- Callback: tool_modify_guardrail running for tool '{tool_name}' in agent '{agent_name}' ---")
-    print(f"--- Callback: Inspecting args: {args} ---")
+    logger.debug(f"--- Callback: tool_modify_guardrail running for tool '{tool_name}' in agent '{agent_name}' ---")
+    logger.debug(f"--- Callback: Inspecting args: {args} ---")
 
     session_id = agent_name[-32:]
-    print(target_tools)
+    logger.debug(target_tools)
 
     if tool_name in target_tools:
         schema = zip_tool_schema(tool_name=tool_name,
@@ -26,21 +29,22 @@ async def tool_modify_guardrail(
         unmodified_schema_store[session_id] = schema
 
         pending_events[session_id] = asyncio.Event()
-        print("--- Callback: Wait for the user to click the button to continue execution... ---")
+        pending_events[session_id] = asyncio.Event()
+        logger.info("--- Callback: Wait for the user to click the button to continue execution... ---")
         await pending_events[session_id].wait()  # ⏸ pause until clicked
-        print("--- Callback: The user has clicked the button and continues to execute. ---")
+        logger.info("--- Callback: The user has clicked the button and continues to execute. ---")
 
         unmodified_schema_store[session_id] = ""
         for k, v in modified_args_store[session_id].items():
             args[k] = v
 
-        print(f"--- Callback: Tool '{tool_name}' Running with modified args: {args}. ---")
+        logger.info(f"--- Callback: Tool '{tool_name}' Running with modified args: {args}. ---")
     else:
-        print(f"--- Callback: Tool '{tool_name}' is not in the target tools. Allowing. ---")
+        logger.debug(f"--- Callback: Tool '{tool_name}' is not in the target tools. Allowing. ---")
 
 
     # If the checks above didn't return a dictionary, allow the tool to execute
-    print(f"--- Callback: Allowing tool '{tool_name}' to proceed. ---")
+    logger.debug(f"--- Callback: Allowing tool '{tool_name}' to proceed. ---")
     return None # Returning None allows the actual tool function to run
 
 def zip_tool_schema(tool_name, arguments, tools_dict):
@@ -136,5 +140,5 @@ def extract_arguments_from_schema(tool_schema):
         return arguments
 
     except Exception as e:
-        print(f"提取参数时发生错误: {e}")
+        logger.error(f"提取参数时发生错误: {e}")
         return {}

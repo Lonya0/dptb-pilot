@@ -3,6 +3,9 @@ import importlib
 import os
 import argparse
 from dotenv import load_dotenv
+from dptb_pilot.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 from importlib.metadata import version
 __version__ = version("dptb_pilot_backend")
@@ -91,9 +94,9 @@ def print_address():
     """
     address = f"{os.environ['DPTB_AGENT_HOST']}:{os.environ['DPTB_AGENT_PORT']}"
     if os.environ["DPTB_AGENT_TRANSPORT"] == "sse":
-        print("Address:", address + "/sse")
+        logger.info(f"Address: {address}/sse")
     elif os.environ["DPTB_AGENT_TRANSPORT"] == "streamable-http":
-        print("Address:", address + "/mcp")
+        logger.info(f"Address: {address}/mcp")
     else:
         raise ValueError("Invalid transport protocol specified. Use 'sse' or 'streamable-http'.")
 
@@ -101,9 +104,9 @@ def print_version():
     """
     Print the version of the Dptb_Agent.
     """
-    repo = "nowhere"
-    print(f"\nDptb_Agent Tools Version: {__version__}")
-    print(f"For more information, visit: {repo}\n")
+    repo = "https://github.com/DeePTB-Lab/dptb-pilot"
+    logger.info(f"\nDeePTB Agent Tools Version: {__version__}")
+    logger.info(f"For more information, visit: {repo}\n")
 
 def main():
     """
@@ -111,11 +114,11 @@ def main():
     """
     print_version()
     if load_dotenv():
-        print("✅ Environment variables loaded from .env")
+        logger.info("✅ Environment variables loaded from .env")
     else:
-        print("⚠️ .env file not found or empty")
+        logger.warning("⚠️ .env file not found or empty")
         
-    print(f"MCP_TOOLS_PORT: {os.getenv('MCP_TOOLS_PORT', 'Not Set (using default)')}")
+    logger.debug(f"MCP_TOOLS_PORT: {os.getenv('MCP_TOOLS_PORT', 'Not Set (using default)')}")
     args = parse_args()  
     
     from dptb_pilot.tools.env import set_envs, create_workpath

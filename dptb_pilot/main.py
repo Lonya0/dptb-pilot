@@ -9,6 +9,9 @@ from typing import Dict
 from dotenv import load_dotenv
 
 from dptb_pilot.server.app import initialize_server, run_server
+from dptb_pilot.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 def parse_arguments():
     """解析命令行参数"""
@@ -105,20 +108,20 @@ def start_frontend_server(frontend_port: int = 3000, frontend_host: str = "0.0.0
     if frontend_path is None:
         frontend_path = possible_paths[0]  # Default
 
-    print(f"Current File: {__file__}")
-    print(f"CWD: {os.getcwd()}")
-    print(f"Tried paths: {possible_paths}")
-    print(f"Using Web UI path: {frontend_path}")
+    logger.debug(f"Current File: {__file__}")
+    logger.debug(f"CWD: {os.getcwd()}")
+    logger.debug(f"Tried paths: {possible_paths}")
+    logger.info(f"Using Web UI path: {frontend_path}")
 
     if not os.path.exists(frontend_path):
-        print(f"前端目录不存在: {frontend_path}")
+        logger.error(f"前端目录不存在: {frontend_path}")
         return False
 
     try:
         # 检查是否已安装依赖
         node_modules = os.path.join(frontend_path, "node_modules")
         if not os.path.exists(node_modules):
-            print("正在安装前端依赖...")
+            logger.info("正在安装前端依赖...")
             try:
                 result = subprocess.run(
                     ["npm", "install"],
@@ -127,21 +130,20 @@ def start_frontend_server(frontend_port: int = 3000, frontend_host: str = "0.0.0
                     capture_output=True,
                     text=True
                 )
-                print("前端依赖安装完成")
+                logger.info("前端依赖安装完成")
                 if result.stdout:
-                    print(f"npm install输出: {result.stdout}")
+                    logger.debug(f"npm install输出: {result.stdout}")
             except subprocess.CalledProcessError as e:
-                print(f"npm install失败:")
-                print(f"返回码: {e.returncode}")
-                print(f"stdout: {e.stdout}")
-                print(f"stderr: {e.stderr}")
+                logger.error(f"npm install失败: 返回码={e.returncode}")
+                logger.error(f"stdout: {e.stdout}")
+                logger.error(f"stderr: {e.stderr}")
                 return False
 
         # 启动开发服务器
-        print(f"启动前端开发服务器...")
-        print(f"前端路径: {frontend_path}")
-        print(f"前端配置: {frontend_host}:{frontend_port}")
-        print(f"后端代理: {backend_host}:{backend_port}")
+        logger.info(f"启动前端开发服务器...")
+        logger.info(f"前端路径: {frontend_path}")
+        logger.info(f"前端配置: {frontend_host}:{frontend_port}")
+        logger.info(f"后端代理: {backend_host}:{backend_port}")
 
         # 设置环境变量
         env = {**os.environ}
@@ -152,14 +154,10 @@ def start_frontend_server(frontend_port: int = 3000, frontend_host: str = "0.0.0
             "BACKEND_PORT": str(backend_port)
         })
 
-        print(f"环境变量设置:")
-        print(f"  PORT={env['PORT']}")
-        print(f"  HOST={env.get('HOST', 'undefined')}")
-        print(f"  BACKEND_HOST={env.get('BACKEND_HOST', 'undefined')}")
-        print(f"  BACKEND_PORT={env.get('BACKEND_PORT', 'undefined')}")
+        logger.debug(f"环境变量设置: PORT={env['PORT']}, HOST={env.get('HOST', 'undefined')}, BACKEND_HOST={env.get('BACKEND_HOST', 'undefined')}, BACKEND_PORT={env.get('BACKEND_PORT', 'undefined')}")
 
         # 使用Popen启动，这样可以在后台运行
-        print("执行npm run dev...")
+        logger.info("执行npm run dev...")
         process = subprocess.Popen(
             ["npm", "run", "dev"],
             cwd=frontend_path,
@@ -170,14 +168,12 @@ def start_frontend_server(frontend_port: int = 3000, frontend_host: str = "0.0.0
         )
 
         # 等待服务器启动
-        print("等待前端服务器启动...")
+        logger.info("等待前端服务器启动...")
         for i in range(10):  # 等待最多10秒
             time.sleep(1)
             if process.poll() is not None:
                 stdout, stderr = process.communicate()
-                print(f"前端服务器启动失败:")
-                print(f"stdout: {stdout}")
-                print(f"stderr: {stderr}")
+                logger.error(f"前端服务器启动失败: \nstdout: {stdout}\nstderr: {stderr}")
                 return False
 
             # 尝试访问端口来检查服务器是否启动
@@ -187,7 +183,7 @@ def start_frontend_server(frontend_port: int = 3000, frontend_host: str = "0.0.0
                 result = sock.connect_ex((frontend_host, frontend_port))
                 sock.close()
                 if result == 0:
-                    print(f"前端服务器已启动，访问地址: http://{frontend_host}:{frontend_port}")
+                    logger.info(f"前端服务器已启动，访问地址: http://{frontend_host}:{frontend_port}")
                     # 延迟打开浏览器（仅当是localhost或127.0.0.1时）
                     if frontend_host in ['localhost', '127.0.0.1']:
                         threading.Timer(2, lambda: webbrowser.open(f"http://{frontend_host}:{frontend_port}")).start()
@@ -197,22 +193,17 @@ def start_frontend_server(frontend_port: int = 3000, frontend_host: str = "0.0.0
 
         # 如果10秒后仍未启动
         stdout, stderr = process.communicate()
-        print(f"前端服务器启动超时:")
-        print(f"stdout: {stdout}")
-        print(f"stderr: {stderr}")
+        logger.error(f"前端服务器启动超时: \nstdout: {stdout}\nstderr: {stderr}")
         return False
 
     except subprocess.CalledProcessError as e:
-        print(f"启动前端服务器失败: {e}")
-        print(f"返回码: {e.returncode}")
-        print(f"stdout: {e.stdout}")
-        print(f"stderr: {e.stderr}")
+        logger.error(f"启动前端服务器失败: {e}\n返回码: {e.returncode}\nstdout: {e.stdout}\nstderr: {e.stderr}")
         return False
     except FileNotFoundError as e:
-        print(f"未找到npm命令，请确保已安装Node.js和npm: {e}")
+        logger.error(f"未找到npm命令，请确保已安装Node.js和npm: {e}")
         return False
     except Exception as e:
-        print(f"前端服务器启动时出现未知错误: {type(e).__name__}: {e}")
+        logger.error(f"前端服务器启动时出现未知错误: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -243,7 +234,7 @@ def react_launch(agent_info: Dict,
         elif os.getenv("LLM_API_KEY"):
             model_config["api_key"] = os.getenv("LLM_API_KEY")
         else:
-            print("警告: API_KEY环境变量未设置，请通过--api-key参数设置或设置环境变量")
+            logger.warning("警告: API_KEY环境变量未设置，请通过--api-key参数设置或设置环境变量")
 
     # 初始化后端服务器
     initialize_server(
@@ -265,27 +256,27 @@ def react_launch(agent_info: Dict,
         time.sleep(2)  # 等待前端服务器启动
 
     # 启动后端API服务器
-    print(f"启动后端API服务器: {host}:{port}")
+    logger.info(f"启动后端API服务器: {host}:{port}")
     if not no_dev:
-        print(f"前端开发服务器: {frontend_host}:{frontend_port}")
+        logger.info(f"前端开发服务器: {frontend_host}:{frontend_port}")
     else:
-        print("前端生产模式 - 请构建前端文件并提供HTTP服务")
+        logger.info("前端生产模式 - 请构建前端文件并提供HTTP服务")
 
     try:
         run_server(host=host, port=port)
     except KeyboardInterrupt:
-        print("\n服务器已停止")
+        logger.info("\n服务器已停止")
     except Exception as e:
-        print(f"启动失败: {e}")
+        logger.error(f"启动失败: {e}")
         sys.exit(1)
 
 
 def main():
     """主函数"""
     if load_dotenv():
-        print("环境变量已根据`.env`文件读入")
+        logger.info("环境变量已根据`.env`文件读入")
     else:
-        print("未找到`.env`文件或无任何变量被读入")
+        logger.warning("未找到`.env`文件或无任何变量被读入")
 
     args = parse_arguments()
 
