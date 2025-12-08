@@ -16,7 +16,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 import asyncio
 
-from better_aim.utils import generate_random_string, hash_dict
+from dptb_pilot.core.utils import generate_random_string, hash_dict
 
 
 def get_chat_history_file_path(sha_id: str, work_path: str) -> str:

@@ -21,8 +21,17 @@ dependencies = [
     "mp-api<0.42.0",
     "emmet-core<0.84.0",
     "typing-extensions",
-    "pymatgen"
+    "pymatgen",
+    "torch==2.5.0",
+    "httpx[socks]",
+    "dptb",
 ]
+
+[tool.uv]
+override-dependencies = ["torch-scatter>=2.1.2"]
+
+[tool.uv.sources]
+dptb = { git = "https://github.com/deepmodeling/DeePTB" }
 
 [project.scripts]
 dptb-pilot = "dptb_pilot.main:main"

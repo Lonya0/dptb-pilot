@@ -8,7 +8,7 @@ from dptb_pilot.core.logger import get_logger
 logger = get_logger(__name__)
 
 from importlib.metadata import version
-__version__ = version("dptb_pilot_backend")
+__version__ = version("dptb_pilot")
 
 def load_tools():
     """

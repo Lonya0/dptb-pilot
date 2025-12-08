@@ -22,18 +22,27 @@ The application is designed to work with the [DeePTB](https://github.com/deepmod
 
 ### 1. Installation
 
-First, clone the repository and install the Python dependencies. It is recommended to use a virtual environment.
+First, clone the repository.
 
 ```bash
 git clone https://github.com/DeePTB-Lab/dptb-pilot.git
 cd dptb-pilot
+```
 
-# Create and activate a virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+Run the installation script. This will set up the environment using `uv` and install the correct version of PyTorch and related dependencies.
 
-# Install Python packages in editable mode
-pip install -e .
+```bash
+# For CPU (default)
+./install.sh
+
+# For CUDA 11.8
+./install.sh cu118
+
+# For CUDA 12.1
+./install.sh cu121
+
+# For CUDA 12.4
+./install.sh cu124
 ```
 
 ### 2. Configuration

@@ -30,26 +30,21 @@
 
 ### Prerequisites
 
-*   **Python 3.10+**
+*   **uv**: [Install uv](https://docs.astral.sh/uv/) for package management.
 *   **Node.js & npm**
 *   **Git**
-*   **DeePTB**: This pilot agent is designed to work with the [DeePTB](https://github.com/deepmodeling/DeePTB) package.
-    > **Important**: `dptb-pilot` and `DeePTB` MUST be installed in the **same Python environment** to ensure the agent can correctly invoke DeePTB tools.
+*   **DeePTB**: The pilot depends on the [DeePTB](https://github.com/deepmodeling/DeePTB) package, which is automatically installed by `uv`.
 
 ### 1. Installation
 
-Clone the repository and install the package in editable mode:
+Clone the repository and install dependencies using `uv`:
 
 ```bash
 git clone https://github.com/DeePTB-Lab/dptb-pilot.git
 cd dptb-pilot
 
-# Create and activate a virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
 # Install dependencies
-pip install -e .
+uv sync
 ```
 
 ### 2. Configuration
@@ -91,13 +86,13 @@ You need to start two services: the **MCP Tool Server** and the **Main Pilot App
 **Terminal 1: Start MCP Tools**
 
 ```bash
-dptb-tools
+uv run dptb-tools
 ```
 
 **Terminal 2: Start Pilot App**
 
 ```bash
-dptb-pilot
+uv run dptb-pilot
 ```
 
 The application should automatically open in your browser at `http://localhost:50001`.
