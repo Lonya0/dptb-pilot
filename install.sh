@@ -95,7 +95,13 @@ PROJECT_ROOT=$(pwd)
 
 echo "Add these aliases to your shell config (e.g., ~/.zshrc or ~/.bashrc):"
 echo ""
-echo "alias pilot='uv run --project $PROJECT_ROOT dptb-pilot'"
-echo "alias tools='uv run --project $PROJECT_ROOT dptb-tools'"
+echo "# One-click startup (Recommended)"
+echo "alias dptb-ai-run=$PROJECT_ROOT/start.sh"
+echo ""
+echo "# Individual components"
+echo "alias dptb-pilot='uv run --project $PROJECT_ROOT dptb-pilot'"
+echo "alias dptb-tools='uv run --project $PROJECT_ROOT dptb-tools'"
 
+echo ""
+echo "Or copy/paste them into your current terminal to use them immediately!"
 echo ""

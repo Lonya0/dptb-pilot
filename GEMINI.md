@@ -78,26 +78,24 @@ The application will be available at `http://localhost:50001`.
 
 ### 4. Running from Anywhere (Recommended)
 
-To run the tools from any directory (not just the project root), creating aliases is recommended. The `./install.sh` script provides these for you.
+To run the full application (Pilot + Tools) from any directory with a single command, use the `start.sh` script.
 
-Add the following to your `~/.zshrc` or `~/.bashrc` (replace `/path/to/dptb-pilot` with your actual path):
+The `./install.sh` script will suggest an alias for you. Add it to your `~/.zshrc` or `~/.bashrc`:
 
 ```bash
-alias dptb-pilot='uv run --project /absolute/path/to/dptb-pilot dptb-pilot'
-alias dptb-tools='uv run --project /absolute/path/to/dptb-pilot dptb-tools'
+# Replace with your actual path
+alias dptb='/absolute/path/to/dptb-pilot/start.sh'
 ```
 
 Then you can simply run:
 
 ```bash
-# Terminal 1
-dptb-tools
-
-# Terminal 2
-dptb-pilot
+dptb
 ```
 
-The application will automatically find the configuration (`.env`) from your current working directory, or fall back to system environment variables.
+This will launch both services in parallel and handle clean shutdown when you press `Ctrl+C`.
+
+The application logic automatically finds the configuration (`.env`) from your current working directory.
 
 ## Development Conventions
 
