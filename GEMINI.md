@@ -16,9 +16,12 @@ The application is designed to work with the [DeePTB](https://github.com/deepmod
 
 ### Prerequisites
 
-*   Python 3.10+
-*   Node.js & npm
-*   Git
+*   **uv** (Required):
+    ```bash
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```
+*   **Node.js & npm** (Required for Frontend)
+*   **Git**
 
 ### 1. Installation
 

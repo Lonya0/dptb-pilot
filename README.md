@@ -30,8 +30,26 @@
 
 ### Prerequisites
 
-*   **uv**: [Install uv](https://docs.astral.sh/uv/) for package management.
-*   **Node.js & npm**
+*   **uv** (Required for Python package management):
+    ```bash
+    # Install uv via curl
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```
+*   **Node.js & npm** (Required for Frontend):
+    *   **Mac/Windows**: [Download Official Installer](https://nodejs.org/) (LTS version)
+    *   **Linux** (Recommended via `nvm`):
+        ```bash
+        # 1. Install nvm
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+        # 2. Activate nvm
+        source ~/.nvm/nvm.sh
+        # 3. Install Node.js LTS (includes npm)
+        nvm install --lts
+        
+        # 4. Verify installation
+        node -v
+        npm -v
+        ```
 *   **Git**
 *   **DeePTB**: The pilot depends on the [DeePTB](https://github.com/deepmodeling/DeePTB) package, which is automatically installed by `uv`.
 

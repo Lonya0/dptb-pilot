@@ -47,7 +47,20 @@ fi
 # Sync dependencies with the specified find-links
 echo "Installing dependencies..."
 # We use uv sync to install the project and dependencies
-uv sync --find-links "$FIND_LINKS_URL"
+# We use uv sync to install the project and dependencies
+if ! uv sync --find-links "$FIND_LINKS_URL"; then
+    echo ""
+    echo "⚠️  Installation failed using the existing lockfile."
+    echo "This often happens when installing on a different OS (e.g., Linux vs Mac)."
+    echo "🔄 Backing up uv.lock and retrying with a fresh resolution..."
+    
+    mv uv.lock uv.lock.bak 2>/dev/null || true
+    
+    if ! uv sync --find-links "$FIND_LINKS_URL"; then
+        echo "❌ Installation failed even after refreshing lockfile."
+        exit 1
+    fi
+fi
 
 echo ""
 echo "✅ Installation complete!"
