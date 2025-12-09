@@ -30,6 +30,8 @@ def load_tools():
 
     # Knowledge
     from dptb_pilot.tools.modules.knowledge.mp_tool import search_materials_project, download_mp_structure
+    from dptb_pilot.tools.modules.knowledge.cod_tool import search_cod_structures, download_cod_structure
+    from dptb_pilot.tools.modules.knowledge.c2db_tool import search_c2db, download_c2db_structure
     from dptb_pilot.tools.modules.knowledge.rag_tool import search_knowledge_base
 
     # System
