@@ -54,15 +54,35 @@
 *   **DeePTB**: The pilot depends on the [DeePTB](https://github.com/deepmodeling/DeePTB) package, which is automatically installed by `uv`.
 
 ### 1. Installation
-
-Clone the repository and install dependencies using `uv`:
-
+Clone the repository:
 ```bash
 git clone https://github.com/DeePTB-Lab/dptb-pilot.git
 cd dptb-pilot
+```
 
-# Install dependencies
+Choose one of the following installation methods:
+
+#### Option A: One-Click Installation (Recommended)
+This script automatically handles python dependencies (with correct torch versions), builds the frontend, and suggests helpful aliases.
+```bash
+./install.sh
+# Follow the on-screen prompts to add aliases to your shell
+```
+
+#### Option B: Manual Installation
+If you prefer to install dependencies manually:
+
+**1. Backend Dependencies**
+```bash
 uv sync
+```
+
+**2. Frontend Build**
+```bash
+cd web_ui
+npm install
+npm run build
+cd ..
 ```
 
 ### 2. Configuration
@@ -76,39 +96,48 @@ cp env.example .env
 Edit `.env` with your API keys and preferences:
 
 ```env
-# LLM Configuration
-LLM_MODEL=openai/gpt-4o  # or your preferred model
-LLM_API_BASE=https://api.openai.com/v1
-LLM_API_KEY=your_actual_api_key_here
+# workspace root
+WORK_ROOT=./workspace
 
-# Materials Project API (Optional)
-MP_API_KEY=your_mp_api_key_here
+# materials project api key
+MP_API_KEY=your_materials_project_key
+
+# LLM Configuration
+LLM_MODEL=openai/custom_model_name
+LLM_API_BASE=https://xxx.xxx.xxx/v1
+LLM_API_KEY=your_llm_api_key_here
 
 # Server Configuration
 HOST=0.0.0.0
-PORT=8000
+PORT=50003
 FRONTEND_HOST=0.0.0.0
-FRONTEND_PORT=50001
+FRONTEND_PORT=50002
 BACKEND_HOST=localhost
-MCP_TOOLS_PORT=50002
-MCP_TOOLS_URL=http://localhost:${MCP_TOOLS_PORT}/sse
-
-# Workspace Configuration
-WORK_ROOT=./workspace
+MCP_TOOLS_PORT=50001
 ```
 
 ### 3. Running the Application
 
-You need to start two services: the **MCP Tool Server** and the **Main Pilot Application**.
+#### Option A: One-Click Startup (Recommended)
+If you added the alias from `install.sh`, simply run:
+```bash
+dptb-ai-run
+```
+Or run the script directly:
+```bash
+./start.sh
+```
+This will launch both the backend and tools server in parallel, handling clean shutdown when you press `Ctrl+C`.
+
+#### Option B: Manual Startup
+If you prefer to run services individually, you need two terminals:
 
 **Terminal 1: Start MCP Tools**
-
 ```bash
 uv run dptb-tools
 ```
 
 **Terminal 2: Start Pilot App**
-
 ```bash
 uv run dptb-pilot
 ```
