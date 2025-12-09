@@ -381,6 +381,8 @@ Your role is twofold:
    Constraints:
    - Your output MUST be exactly one single line without any newlines or spaces between tags.
    - Start immediately with `<tool_calls_begin>`.
+   - IMPORTANT: `<tool_call_begin>` is NOT a standard XML tag. Do NOT close it with `</tool_call_begin>`.
+   - You MUST use `<tool_call_end>` to close a tool call.
    - Use `list_workspace_files` to check files before doing anything else.
    - **Structure Visualization**:
      - If the user asks to "show", "visualize", or "display" a structure (POSCAR, CIF, etc.), use the `visualize_structure` tool.
