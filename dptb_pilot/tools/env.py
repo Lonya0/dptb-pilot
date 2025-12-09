@@ -97,18 +97,22 @@ def set_envs(transport_input=None, model_input=None, port_input=None, host_input
         )
     return envjson
     
-def create_workpath():
     """
     Create the working directory for dptb agent, and change the current working directory to it.
     
     Returns:
         str: The path to the working directory.
     """
-    default_root = os.environ.get("WORK_ROOT", "/tmp")
-    default_work_path = os.path.join(default_root, "server_temp")
+    # 优先使用显式设置的 WORK_ROOT
+    work_root = os.environ.get("WORK_ROOT")
     
-    # Use environment var if set, otherwise default relative to WORK_ROOT
-    base_path = os.environ.get("DPTB_AGENT_WORK_PATH", default_work_path)
+    if work_root:
+        base_path = os.path.join(work_root, "server_temp")
+    else:
+        # 否则回退到可能的缓存配置或默认值
+        default_work_path = os.path.join("/tmp", "server_temp")
+        base_path = os.environ.get("DPTB_AGENT_WORK_PATH", default_work_path)
+
     work_path = f"{base_path}/{time.strftime('%Y%m%d%H%M%S')}"
     os.makedirs(work_path, exist_ok=True)
     cwd = os.getcwd()
