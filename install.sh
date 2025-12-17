@@ -38,11 +38,23 @@ echo "Find-links URL: $FIND_LINKS_URL"
 echo "======================================"
 echo ""
 
+# Check python environment
+echo "Using Python: $(which python)"
+python - <<'EOF'
+import sys
+print("Python executable:", sys.executable)
+EOF
+
 # Check if uv is installed
-if ! command -v python -m uv &> /dev/null; then
-    echo "UV is not installed. Installing UV..."
+if ! python - <<'EOF' &>/dev/null; then
+import uv
+EOF
+then
+    echo "UV is not installed in this Python environment. Installing..."
+    python -m pip install --upgrade pip
     python -m pip install uv
 fi
+
 
 # Sync dependencies with the specified find-links
 echo "Installing dependencies..."
