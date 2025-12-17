@@ -39,16 +39,16 @@ echo "======================================"
 echo ""
 
 # Check if uv is installed
-if ! command -v uv &> /dev/null; then
+if ! command -v python -m uv &> /dev/null; then
     echo "UV is not installed. Installing UV..."
-    pip install uv
+    python -m pip install uv
 fi
 
 # Sync dependencies with the specified find-links
 echo "Installing dependencies..."
 # We use uv sync to install the project and dependencies
 # We use uv sync to install the project and dependencies
-if ! uv sync --find-links "$FIND_LINKS_URL"; then
+if ! python -m uv sync --find-links "$FIND_LINKS_URL"; then
     echo ""
     echo "⚠️  Installation failed using the existing lockfile."
     echo "This often happens when installing on a different OS (e.g., Linux vs Mac)."
@@ -56,7 +56,7 @@ if ! uv sync --find-links "$FIND_LINKS_URL"; then
     
     mv uv.lock uv.lock.bak 2>/dev/null || true
     
-    if ! uv sync --find-links "$FIND_LINKS_URL"; then
+    if ! python -m uv sync --find-links "$FIND_LINKS_URL"; then
         echo "❌ Installation failed even after refreshing lockfile."
         exit 1
     fi
