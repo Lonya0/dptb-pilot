@@ -23,12 +23,17 @@ dependencies = [
     "typing-extensions",
     "pymatgen",
     "torch==2.5.0",
+    "torch-scatter>=2.1.2",
     "httpx[socks]",
     "dptb",
 ]
 
 [tool.uv]
-override-dependencies = ["torch-scatter>=2.1.2"]
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'"
+]
+index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 
 [tool.uv.sources]
 dptb = { git = "https://github.com/deepmodeling/DeePTB" }
