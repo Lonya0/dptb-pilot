@@ -12,7 +12,8 @@ export default defineConfig({
       'localhost',
       '127.0.0.1',
       '0.0.0.0',
-      'wufj1384754.bohrium.tech'
+      'wufj1384754.bohrium.tech',
+      'www.bohrium.com'
     ],
     cors: true,
     proxy: {
