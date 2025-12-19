@@ -68,3 +68,6 @@ reproduce_*.py
 # Logs and temporary files
 *.log
 *.tmp
+
+# Embeding model cache
+/resources/emb_model/huggingface/
