@@ -26,6 +26,8 @@ export const translations = {
     searchMaterialsDesc: '搜索数据库材料',
 
     // Sidebar
+    sessions: '会话记录',
+    tools: '工具面板',
     parameters: '运行参数',
     files: '文件列表',
     executionMode: '执行模式',
@@ -99,6 +101,8 @@ export const translations = {
     searchMaterialsDesc: 'Search materials database',
 
     // Sidebar
+    sessions: 'Sessions',
+    tools: 'Tools',
     parameters: 'Parameters',
     files: 'Files',
     executionMode: 'EXECUTION MODE',

@@ -25,7 +25,11 @@ import {
   LineChartOutlined,
   SettingOutlined,
   SearchOutlined,
-  GlobalOutlined
+  GlobalOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  DoubleRightOutlined,
+  DoubleLeftOutlined
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import StructureViewer from '../StructureViewer';
@@ -47,6 +51,13 @@ function Chat() {
   const { state, actions } = useApp();
   const [inputValue, setInputValue] = useState('');
   const [activeTab, setActiveTab] = useState('params');
+
+  // 侧边栏状态管理
+  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
+
+  // 移动端检测
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -91,6 +102,42 @@ function Chat() {
   useEffect(() => {
     scrollToBottom();
   }, [state.currentChatSession?.history]);
+
+  // 窗口大小变化监听
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const newIsMobile = width < 768;
+
+      setIsMobile(newIsMobile);
+
+      // 移动端自动收起侧边栏
+      if (newIsMobile) {
+        setLeftSidebarCollapsed(true);
+        setRightSidebarCollapsed(true);
+      } else {
+        setLeftSidebarCollapsed(false);
+        setRightSidebarCollapsed(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize(); // 初始化调用
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  // 检测函数调用并自动展开右侧栏
+  useEffect(() => {
+    if (state.currentChatSession?.history && isMobile) {
+      const lastMessage = state.currentChatSession.history[state.currentChatSession.history.length - 1];
+      if (lastMessage?.content?.includes('function_call') || lastMessage?.content?.includes('tool_calls')) {
+        setRightSidebarCollapsed(false);
+      }
+    }
+  }, [state.currentChatSession?.history, isMobile]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -354,68 +401,239 @@ function Chat() {
           />
         </div>
 
-        <Space size="middle">
-          <Button
-            icon={<GlobalOutlined />}
-            onClick={actions.toggleLanguage}
-            className="glass-btn"
-            shape="round"
-            size="small"
-            style={{ color: '#94a3b8', borderColor: 'rgba(255,255,255,0.1)' }}
-          >
-            {state.language === 'zh' ? '中 / En' : 'En / 中'}
-          </Button>
-          <Tooltip title={`User ID: ${state.userId}`}>
-            <Tag icon={<UserOutlined />} color="blue" style={{ 
-              margin: 0, 
-              padding: '6px 12px', 
-              borderRadius: '20px',
-              background: 'rgba(14, 165, 233, 0.1)',
-              border: '1px solid rgba(14, 165, 233, 0.2)',
-              color: '#0ea5e9'
-            }}>
-              {state.userId?.slice(0, 4)}...{state.userId?.slice(-4)}
-            </Tag>
-          </Tooltip>
-          <Tooltip title={t.clearChat}>
-            <Button
-              icon={<ClearOutlined />}
-              onClick={handleClearChat}
-              disabled={state.loading}
-              className="glass-btn"
-              shape="circle"
-            />
-          </Tooltip>
-          <Tooltip title={t.logout}>
-            <Button
-              icon={<LogoutOutlined />}
-              onClick={handleLogout}
-              className="glass-btn"
-              shape="circle"
-            />
-          </Tooltip>
+        <Space size="small">
+          {/* 桌面端显示所有按钮 */}
+          {!isMobile && (
+            <>
+              <Button
+                icon={<GlobalOutlined />}
+                onClick={actions.toggleLanguage}
+                className="glass-btn"
+                shape="round"
+                size="small"
+                style={{ color: '#94a3b8', borderColor: 'rgba(255,255,255,0.1)' }}
+              >
+                {state.language === 'zh' ? '中 / En' : 'En / 中'}
+              </Button>
+              <Tooltip title={`User ID: ${state.userId}`}>
+                <Tag icon={<UserOutlined />} color="blue" style={{
+                  margin: 0,
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  background: 'rgba(14, 165, 233, 0.1)',
+                  border: '1px solid rgba(14, 165, 233, 0.2)',
+                  color: '#0ea5e9'
+                }}>
+                  {state.userId?.slice(0, 4)}...{state.userId?.slice(-4)}
+                </Tag>
+              </Tooltip>
+              <Tooltip title={t.clearChat}>
+                <Button
+                  icon={<ClearOutlined />}
+                  onClick={handleClearChat}
+                  disabled={state.loading}
+                  className="glass-btn"
+                  shape="circle"
+                />
+              </Tooltip>
+              <Tooltip title={t.logout}>
+                <Button
+                  icon={<LogoutOutlined />}
+                  onClick={handleLogout}
+                  className="glass-btn"
+                  shape="circle"
+                />
+              </Tooltip>
+            </>
+          )}
+
+          {/* 移动端只显示必要按钮，减少拥挤 */}
+          {isMobile && (
+            <>
+              <Button
+                icon={<GlobalOutlined />}
+                onClick={actions.toggleLanguage}
+                className="glass-btn"
+                shape="circle"
+                size="small"
+                style={{ color: '#94a3b8' }}
+              />
+              <Tooltip title={`User: ${state.userId?.slice(0, 4)}...`}>
+                <Tag icon={<UserOutlined />} color="blue" style={{
+                  margin: 0,
+                  padding: '4px 8px',
+                  borderRadius: '12px',
+                  fontSize: '11px',
+                  background: 'rgba(14, 165, 233, 0.1)',
+                  border: '1px solid rgba(14, 165, 233, 0.2)',
+                  color: '#0ea5e9'
+                }}>
+                  {state.userId?.slice(0, 3)}...
+                </Tag>
+              </Tooltip>
+            </>
+          )}
         </Space>
       </Header>
 
       <Layout style={{ background: 'transparent' }}>
         {/* Left Sidebar: History */}
-        <Sider 
-          width={280} 
-          className="glass-panel"
-          style={{ 
+        <Sider
+          width={280}
+          collapsed={isMobile ? leftSidebarCollapsed : leftSidebarCollapsed}
+          collapsedWidth={0}
+          className="glass-panel mobile-sidebar-left"
+          style={{
             borderRight: '1px solid rgba(255, 255, 255, 0.05)',
-            background: '#0f172a' // slate-900
+            background: '#0f172a', // slate-900
+            display: isMobile ? (leftSidebarCollapsed ? 'none' : 'block') : 'block',
+            position: isMobile ? 'absolute' : 'relative',
+            left: 0,
+            top: 64,
+            height: isMobile ? 'calc(100vh - 64px)' : 'auto',
+            zIndex: 100
           }}
         >
-          <div style={{ padding: '20px', height: '100%', overflowY: 'auto' }}>
+          {!isMobile && (
+            <div style={{
+              padding: '12px 16px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <Text style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 500 }}>
+                {t.sessions || 'Sessions'}
+              </Text>
+              <Button
+                type="text"
+                size="small"
+                icon={leftSidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
+                style={{ color: '#94a3b8' }}
+              />
+            </div>
+          )}
+          <div style={{ padding: isMobile ? '20px' : '20px 20px 20px 0', height: '100%', overflowY: 'auto' }}>
             <SessionPanel />
+
+            {/* 移动端额外功能按钮 */}
+            {isMobile && (
+              <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <Tooltip title={t.clearChat}>
+                    <Button
+                      icon={<ClearOutlined />}
+                      onClick={handleClearChat}
+                      disabled={state.loading}
+                      className="glass-btn"
+                      block
+                      style={{
+                        height: '44px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {t.clearChat}
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title={t.logout}>
+                    <Button
+                      icon={<LogoutOutlined />}
+                      onClick={handleLogout}
+                      className="glass-btn"
+                      block
+                      danger
+                      style={{
+                        height: '44px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {t.logout}
+                    </Button>
+                  </Tooltip>
+                </div>
+              </div>
+            )}
           </div>
         </Sider>
 
+        {/* Desktop Left Sidebar Toggle Button - Always Visible when not collapsed */}
+        {!isMobile && (
+          <Button
+            type="text"
+            size="small"
+            icon={leftSidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
+            style={{
+              position: 'absolute',
+              left: leftSidebarCollapsed ? '16px' : '296px',
+              top: '80px',
+              zIndex: 101,
+              backgroundColor: 'rgba(15, 23, 42, 0.8)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#94a3b8',
+              borderRadius: '8px',
+              width: '32px',
+              height: '32px',
+              backdropFilter: 'blur(8px)',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          />
+        )}
+
+        {/* Left Sidebar Toggle Button (Mobile) */}
+        {isMobile && (
+          <Button
+            type="text"
+            size="large"
+            icon={<DoubleRightOutlined />}
+            onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
+            style={{
+              position: 'absolute',
+              left: leftSidebarCollapsed ? '16px' : '296px',
+              top: '80px',
+              zIndex: 101,
+              backgroundColor: 'rgba(15, 23, 42, 0.8)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#94a3b8',
+              borderRadius: '8px',
+              width: '40px',
+              height: '40px',
+              backdropFilter: 'blur(8px)',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          />
+        )}
+
         {/* Center: Chat Area */}
-        <Content style={{ display: 'flex', position: 'relative', background: '#020617' }}> {/* slate-950 */}
-          <div 
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}
+        <Content style={{
+          display: 'flex',
+          position: 'relative',
+          background: '#020617', // slate-950
+          marginLeft: isMobile ? 0 : (leftSidebarCollapsed ? 0 : 'auto'),
+          marginRight: isMobile ? 0 : (rightSidebarCollapsed ? 0 : 'auto'),
+          minHeight: '100vh' // 确保内容区域高度固定
+        }}>
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100vh', // 固定高度防止布局变化
+              position: 'relative',
+              maxWidth: isMobile ? '100%' : 'none',
+              width: isMobile ? '100%' : 'auto'
+            }}
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
             onDrop={(e) => {
               e.preventDefault(); e.stopPropagation();
@@ -427,9 +645,11 @@ function Chat() {
               ref={chatContainerRef}
               style={{
                 flex: 1,
-                padding: '24px 40px 100px 40px', // Extra padding at bottom for floating input
+                padding: isMobile ? '16px 16px 60px 16px' : '24px 40px 100px 40px', // 移动端减少底部padding
                 overflowY: 'auto',
-                backgroundColor: 'transparent'
+                backgroundColor: 'transparent',
+                maxWidth: '100%',
+                minHeight: 0 // 确保flex子项可以收缩
               }}
             >
               {(!state.currentChatSession?.history || state.currentChatSession.history.length === 0) ? (
@@ -449,37 +669,40 @@ function Chat() {
                     {t.welcomeSubtitle}
                   </Text>
                   
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: '1fr 1fr', 
-                    gap: '20px', 
-                    width: '100%' 
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                    gap: isMobile ? '16px' : '20px',
+                    width: '100%'
                   }}>
                     {SHORTCUT_CARDS.map((card, idx) => (
-                      <div 
+                      <div
                         key={idx}
                         className="glass-card"
-                        style={{ 
-                          padding: '24px', 
+                        style={{
+                          padding: isMobile ? '20px' : '24px',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '16px',
+                          gap: isMobile ? '12px' : '16px',
                           background: '#1e293b', // slate-800
                           border: '1px solid #334155' // slate-700
                         }}
                         onClick={() => handleSendMessage(card.prompt)}
                       >
-                        <div style={{ 
-                          width: '48px', 
-                          height: '48px', 
-                          borderRadius: '12px', 
+                        <div style={{
+                          width: isMobile ? '40px' : '48px',
+                          height: isMobile ? '40px' : '48px',
+                          borderRadius: '12px',
                           background: 'rgba(255,255,255,0.05)',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center'
+                          justifyContent: 'center',
+                          flexShrink: 0
                         }}>
-                          {card.icon}
+                          <div style={{ fontSize: isMobile ? '20px' : '24px' }}>
+                            {card.icon}
+                          </div>
                         </div>
                         <div>
                           <Text strong style={{ fontSize: '16px', display: 'block', color: '#e2e8f0' }}>{card.title}</Text>
@@ -498,14 +721,15 @@ function Chat() {
             </div>
 
             {/* Floating Input Area */}
-            <div style={{ 
-              position: 'absolute', 
-              bottom: '30px', 
-              left: '50%', 
+            <div style={{
+              position: 'absolute',
+              bottom: isMobile ? '10px' : '30px', // 移动端调整为10px
+              left: '50%',
               transform: 'translateX(-50%)',
-              width: '90%',
-              maxWidth: '800px',
-              zIndex: 20
+              width: isMobile ? 'calc(100% - 32px)' : '90%',
+              maxWidth: isMobile ? '100%' : '800px',
+              zIndex: 20,
+              padding: isMobile ? '0 16px' : '0'
             }}>
               {state.error && (
                 <Alert
@@ -586,26 +810,56 @@ function Chat() {
             </div>
           </div>
 
-          <Sider 
-            width={340} 
+          <Sider
+            width={340}
+            collapsed={isMobile ? rightSidebarCollapsed : rightSidebarCollapsed}
+            collapsedWidth={0}
             theme="light"
-            style={{ 
+            className="mobile-sidebar-right"
+            style={{
               borderLeft: '1px solid rgba(51, 65, 85, 0.5)', // border-slate-700
               background: '#0f172a', // slate-900
-              padding: '16px' // p-4
+              padding: '16px', // p-4
+              display: isMobile ? (rightSidebarCollapsed ? 'none' : 'block') : 'block',
+              position: isMobile ? 'absolute' : 'relative',
+              right: 0,
+              top: 64,
+              height: isMobile ? 'calc(100vh - 64px)' : 'auto',
+              zIndex: 100
             }}
           >
+            {!isMobile && (
+              <div style={{
+                padding: '12px 16px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '16px'
+              }}>
+                <Text style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 500 }}>
+                  {t.tools || 'Tools'}
+                </Text>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={rightSidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                  onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
+                  style={{ color: '#94a3b8' }}
+                />
+              </div>
+            )}
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               {/* Segmented Control */}
-              <div style={{ 
-                width: '100%', 
+              <div style={{
+                width: '100%',
                 backgroundColor: '#1e293b', // slate-800
-                padding: '4px', 
-                borderRadius: '8px', 
-                display: 'flex', 
-                marginBottom: '24px' 
+                padding: '4px',
+                borderRadius: '8px',
+                display: 'flex',
+                marginBottom: '24px'
               }}>
-                <div 
+                <div
                   onClick={() => setActiveTab('params')}
                   style={{
                     flex: 1,
@@ -623,7 +877,7 @@ function Chat() {
                 >
                   {t.parameters}
                 </div>
-                <div 
+                <div
                   onClick={() => setActiveTab('files')}
                   style={{
                     flex: 1,
@@ -648,6 +902,60 @@ function Chat() {
               </div>
             </div>
           </Sider>
+
+        {/* Desktop Right Sidebar Toggle Button - Always Visible when not collapsed */}
+        {!isMobile && (
+          <Button
+            type="text"
+            size="small"
+            icon={rightSidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
+            style={{
+              position: 'absolute',
+              right: rightSidebarCollapsed ? '16px' : '356px',
+              top: '80px',
+              zIndex: 101,
+              backgroundColor: 'rgba(15, 23, 42, 0.8)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#94a3b8',
+              borderRadius: '8px',
+              width: '32px',
+              height: '32px',
+              backdropFilter: 'blur(8px)',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          />
+        )}
+
+        {/* Right Sidebar Toggle Button (Mobile) */}
+        {isMobile && (
+          <Button
+            type="text"
+            size="large"
+            icon={<DoubleLeftOutlined />}
+            onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
+            style={{
+              position: 'absolute',
+              right: rightSidebarCollapsed ? '16px' : '356px',
+              top: '80px',
+              zIndex: 101,
+              backgroundColor: 'rgba(15, 23, 42, 0.8)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#94a3b8',
+              borderRadius: '8px',
+              width: '40px',
+              height: '40px',
+              backdropFilter: 'blur(8px)',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          />
+        )}
         </Content>
       </Layout>
     </Layout>
