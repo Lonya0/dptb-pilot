@@ -46,10 +46,7 @@ print("Python executable:", sys.executable)
 EOF
 
 # Check if uv is installed
-if ! python - <<'EOF' &>/dev/null; then
-import uv
-EOF
-then
+if ! python -c "import uv" &>/dev/null; then
     echo "UV is not installed in this Python environment. Installing..."
     python -m pip install --upgrade pip
     python -m pip install uv
@@ -73,6 +70,10 @@ if ! python -m uv sync --find-links "$FIND_LINKS_URL"; then
         exit 1
     fi
 fi
+
+# Copy offline embedding model
+echo "Copy offline embedding model..."
+cp -r resources/emb_model/huggingface ~/.cache/huggingface/
 
 echo ""
 echo "✅ Installation complete!"

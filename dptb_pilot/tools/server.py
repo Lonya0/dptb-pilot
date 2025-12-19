@@ -116,11 +116,6 @@ def main():
     Main function to run the MCP tool.
     """
     print_version()
-def main():
-    """
-    Main function to run the MCP tool.
-    """
-    print_version()
     
     # 1. 优先加载当前运行目录下的 .env
     cwd_env = os.path.join(os.getcwd(), '.env')

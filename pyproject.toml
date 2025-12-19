@@ -38,6 +38,9 @@ index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 [tool.uv.sources]
 dptb = { git = "https://github.com/deepmodeling/DeePTB" }
 
+[tool.uv.extra-build-dependencies]
+torch-scatter = ["torch"]
+
 [project.scripts]
 dptb-pilot = "dptb_pilot.main:main"
 dptb-tools = "dptb_pilot.tools.server:main"
