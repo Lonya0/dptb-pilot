@@ -13,7 +13,7 @@ export default defineConfig({
       '127.0.0.1',
       '0.0.0.0',
       'wufj1384754.bohrium.tech',
-      'www.bohrium.com'
+      '.appspace.bohrium.com'
     ],
     cors: true,
     proxy: {
