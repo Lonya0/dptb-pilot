@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, Input, Button, Typography, Form, Alert, Spin } from 'antd';
 import { KeyOutlined } from '@ant-design/icons';
 import { useApp } from '../../contexts/AppContext';
+import Cookies from 'js-cookie'
 
 const { Paragraph, Text } = Typography;
 
@@ -28,8 +29,12 @@ function Login() {
   }, [state.isAuthenticated, navigate]);
 
   useEffect(() => {
+    const bohriumAccessKey = Cookies.get('appAccessKey');
     const savedSessionId = localStorage.getItem('last_session_id');
-    if (savedSessionId) {
+    if (bohriumAccessKey) {
+      setSessionId(bohriumAccessKey);
+      form.setFieldsValue({ session_id: bohriumAccessKey });
+    } else if (savedSessionId) {
       setSessionId(savedSessionId);
       form.setFieldsValue({ session_id: savedSessionId });
     } else {
