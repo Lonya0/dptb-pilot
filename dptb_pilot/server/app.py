@@ -22,6 +22,8 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 from dptb_pilot.core.logger import get_logger
+from dptb_pilot.core.photon_service import get_photon_service, PhotonChargeResult
+from dptb_pilot.core.photon_config import CHARGING_ENABLED
 
 logger = get_logger(__name__)
 
@@ -247,6 +249,16 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
     """WebSocket聊天端点，支持流式响应"""
     await manager.connect(websocket, session_id)
 
+    # 获取 cookies 用于光子收费
+    cookies = None
+    try:
+        # FastAPI WebSocket 不直接提供 cookies 属性，需要从请求中获取
+        cookies = dict(websocket._cookies) if hasattr(websocket, '_cookies') else {}
+        logger.info(f"WebSocket connection cookies: {list(cookies.keys())}")
+    except Exception as e:
+        logger.warning(f"Failed to get WebSocket cookies: {e}")
+        cookies = {}
+
     try:
         if session_id not in active_agents:
             await websocket.send_text(json.dumps({
@@ -287,11 +299,12 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                 continue
 
             response_text = ""
+            usage_metadata = None
             try:
                 async for response in call_agent_async(user_message, runner, session_id[:4], session_id):
                     if response["type"] in ["streaming_response", "final_response"]:
                         response_text += (response.get("content") or "")
-                        
+
                         # Check for usage metadata
                         if "usage" in response:
                              # Send usage info to frontend
@@ -299,7 +312,9 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                                  "type": "usage_update",
                                  "usage": response["usage"]
                              }))
-                             
+                             # Store usage metadata for photon charging
+                             usage_metadata = response["usage"]
+
                         await websocket.send_text(json.dumps(response))
             except Exception as e:
                 logger.error(f"Error during agent execution: {e}")
@@ -316,6 +331,54 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                     "message": f"Agent execution error: {str(e)}. Please try again."
                 }))
                 continue
+
+            # 执行光子收费（如果启用）
+            charge_result = None
+            if CHARGING_ENABLED and usage_metadata:
+                try:
+                    photon_service = get_photon_service()
+                    if photon_service:
+                        input_tokens = usage_metadata.get("promptTokenCount", 0) or usage_metadata.get("prompt_tokens", 0)
+                        output_tokens = usage_metadata.get("candidatesTokenCount", 0) or usage_metadata.get("candidates_tokens", 0)
+
+                        logger.info(f"Processing photon charge - Input: {input_tokens}, Output: {output_tokens}")
+
+                        charge_result = await photon_service.charge_photon(
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            tool_calls=0,
+                            websocket_cookies=cookies
+                        )
+
+                        # 发送收费结果到前端
+                        await websocket.send_text(json.dumps({
+                            "type": "charge_result",
+                            "charge_result": {
+                                "success": charge_result.success,
+                                "code": charge_result.code,
+                                "message": charge_result.message,
+                                "biz_no": str(charge_result.biz_no) if charge_result.biz_no else None,
+                                "photon_amount": charge_result.photon_amount,
+                                "rmb_amount": charge_result.rmb_amount
+                            }
+                        }))
+
+                        if charge_result.success:
+                            logger.info(f"Photon charge successful: {charge_result.message}")
+                        else:
+                            logger.warning(f"Photon charge failed: {charge_result.message}")
+                except Exception as charge_error:
+                    logger.error(f"Error during photon charging: {charge_error}")
+                    await websocket.send_text(json.dumps({
+                        "type": "charge_result",
+                        "charge_result": {
+                            "success": False,
+                            "code": -1,
+                            "message": f"收费异常: {str(charge_error)}",
+                            "photon_amount": 0,
+                            "rmb_amount": 0.0
+                        }
+                    }))
 
             # 确保 chat_id 存在
             if not chat_id:

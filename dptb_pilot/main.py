@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 
 from dptb_pilot.server.app import initialize_server, run_server
 from dptb_pilot.core.logger import get_logger
+from dptb_pilot.core.photon_service import init_photon_service
+from dptb_pilot.core.photon_config import PHOTON_CONFIG, CHARGING_ENABLED
 
 logger = get_logger(__name__)
 
@@ -250,6 +252,17 @@ def react_launch(agent_info: Dict,
             model_config["api_key"] = os.getenv("LLM_API_KEY")
         else:
             logger.warning("警告: API_KEY环境变量未设置，请通过--api-key参数设置或设置环境变量")
+
+    # 初始化光子收费服务（如果启用）
+    if CHARGING_ENABLED:
+        try:
+            init_photon_service(PHOTON_CONFIG)
+            logger.info("✅ 光子收费服务已启用")
+        except Exception as e:
+            logger.error(f"❌ 初始化光子收费服务失败: {e}")
+            logger.warning("⚠️ 将在无光子收费模式下运行")
+    else:
+        logger.info("ℹ️ 光子收费服务已禁用")
 
     # 初始化后端服务器
     initialize_server(

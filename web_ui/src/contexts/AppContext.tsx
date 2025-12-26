@@ -27,12 +27,14 @@ type AppAction =
   | { type: 'UPDATE_STREAMING_RESPONSE'; payload: string }
   | { type: 'SET_RESPONDING'; payload: boolean }
   | { type: 'SET_PENDING_TOOL_RESPONSE'; payload: string }
-  | { type: 'SET_LANGUAGE'; payload: 'zh' | 'en' };
+  | { type: 'SET_LANGUAGE'; payload: 'zh' | 'en' }
+  | { type: 'SET_CLIENT_NAME'; payload: string };
 
 // 初始状态
 const initialState: AppState = {
   isAuthenticated: false,
   userId: '',
+  clientName: '',
   currentChatSession: null,
   chatSessions: [],
   files: [],
@@ -163,6 +165,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_LANGUAGE':
       return { ...state, language: action.payload };
 
+    case 'SET_CLIENT_NAME':
+      return { ...state, clientName: action.payload };
+
     default:
       return state;
   }
@@ -206,13 +211,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SET_CONFIG', payload: config });
         dispatch({ type: 'SET_ERROR', payload: null }); // 清除之前的错误
 
-        // 尝试自动登录
+        // 从cookie和localStorage获取认证信息
+        const getCookie = (name: string) => {
+          const value = `; ${document.cookie}`;
+          const parts = value.split(`; ${name}=`);
+          if (parts.length === 2) return parts.pop()?.split(';').shift();
+          return null;
+        };
+
+        // 使用 SHA-256 哈希算法将 clientName 转化为32位字符串
+        const hashTo32Bytes = async (input: string): Promise<string> => {
+          if (!input) return '';
+          const encoder = new TextEncoder();
+          const data = encoder.encode(input);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+          return hashHex.substring(0, 32);
+        };
+
+        const clientName = getCookie('clientName');
         const savedUserId = localStorage.getItem('last_session_id');
-        if (savedUserId) {
+
+        // 存储 clientName
+        if (clientName) {
+          dispatch({ type: 'SET_CLIENT_NAME', payload: clientName });
+        }
+
+        // 使用 clientName 的哈希值作为 userId
+        let userId = savedUserId;
+        if (clientName) {
+          userId = await hashTo32Bytes(clientName);
+          console.log('使用 clientName 生成 userId:', clientName, '->', userId);
+          // 更新 localStorage
+          if (savedUserId !== userId) {
+            localStorage.setItem('last_session_id', userId);
+          }
+        }
+
+        if (userId) {
           try {
-            console.log('尝试自动登录:', savedUserId);
-            await apiService.login({ session_id: savedUserId });
-            dispatch({ type: 'LOGIN_SUCCESS', payload: savedUserId });
+            console.log('尝试自动登录:', userId);
+            await apiService.login({ session_id: userId });
+            dispatch({ type: 'LOGIN_SUCCESS', payload: userId });
             
             // 加载用户数据
             // 注意：这里我们不能直接调用actions，因为actions还没定义
@@ -220,31 +261,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
             
             // 1. 加载会话
             try {
-              const { sessions } = await apiService.getUserSessions(savedUserId);
+              const { sessions } = await apiService.getUserSessions(userId);
               if (sessions && sessions.length > 0) {
                 dispatch({ type: 'SET_CHAT_SESSIONS', payload: sessions });
-                
+
                 // 恢复上次活跃的会话
-                const lastActiveChatId = localStorage.getItem(`last_active_chat_${savedUserId}`);
+                const lastActiveChatId = localStorage.getItem(`last_active_chat_${userId}`);
                 let targetSession = null;
-                
+
                 if (lastActiveChatId) {
                   targetSession = sessions.find((s: any) => s.chat_id === lastActiveChatId);
                 }
-                
+
                 if (!targetSession) {
                   targetSession = sessions[0];
                 }
-                
+
                 if (targetSession) {
-                  dispatch({ 
-                    type: 'SET_CURRENT_CHAT_SESSION', 
+                  dispatch({
+                    type: 'SET_CURRENT_CHAT_SESSION',
                     payload: {
                       chat_id: targetSession.chat_id,
                       user_id: targetSession.user_id,
                       title: targetSession.title,
                       history: targetSession.history,
-                    } 
+                    }
                   });
                 }
               }
@@ -254,7 +295,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
             // 2. 加载文件
             try {
-              const { files } = await apiService.getFiles(savedUserId);
+              const { files } = await apiService.getFiles(userId);
               dispatch({ type: 'UPDATE_FILES', payload: files });
             } catch (err) {
               console.warn('自动登录加载文件失败:', err);
@@ -287,7 +328,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             break;
           case 'final_response':
             dispatch({ type: 'UPDATE_STREAMING_RESPONSE', payload: message.content || '' });
-            // 标记消息完成
+            // 标记消息完成，包含token使用和计费信息
             if (state.currentChatSession?.history.length) {
               const lastMessage = state.currentChatSession.history[state.currentChatSession.history.length - 1];
               if (lastMessage.role === 'assistant') {
@@ -295,6 +336,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 updatedHistory[updatedHistory.length - 1] = {
                   ...lastMessage,
                   timestamp: new Date().toISOString(),
+                  usage_metadata: message.usage_metadata,
+                  charge_result: message.charge_result,
                 };
                 dispatch({
                   type: 'SET_CURRENT_CHAT_SESSION',
@@ -303,10 +346,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     history: updatedHistory,
                   },
                 });
+
+                // 添加Token消耗和计费日志
+                console.log('='.repeat(60));
+                console.log('LLM Token消耗信息:');
+                if (message.usage_metadata) {
+                  console.log('  输入Token (prompt_tokens):', message.usage_metadata.prompt_tokens || 0);
+                  console.log('  输出Token (candidates_tokens):', message.usage_metadata.candidates_tokens || 0);
+                  console.log('  总Token (total_tokens):', message.usage_metadata.total_tokens || 0);
+                } else {
+                  console.log('  未收到Token使用信息');
+                }
+
+                console.log('');
+                console.log('光子计费信息:');
+                if (message.charge_result) {
+                  console.log('  收费状态:', message.charge_result.success ? '✓ 成功' : '✗ 失败');
+                  console.log('  状态码:', message.charge_result.code);
+                  console.log('  消息:', message.charge_result.message);
+                  console.log('  消耗光子:', message.charge_result.photon_amount || 0);
+                  console.log('  消费金额 (RMB):', (message.charge_result.rmb_amount || 0).toFixed(2), '元');
+                  if (message.charge_result.biz_no) {
+                    console.log('  订单号:', message.charge_result.biz_no);
+                  }
+                } else {
+                  console.log('  未收到计费信息');
+                }
+                console.log('='.repeat(60));
               }
             }
             dispatch({ type: 'SET_RESPONDING', payload: false });
-            
+
             // 任务完成后刷新文件列表，因为Agent可能生成了新文件
             actions.loadFiles();
             break;
