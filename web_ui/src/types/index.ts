@@ -3,6 +3,19 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp?: string;
+  usage_metadata?: {
+    prompt_tokens?: number;
+    candidates_tokens?: number;
+    total_tokens?: number;
+  };
+  charge_result?: {
+    success: boolean;
+    code: string;
+    message: string;
+    biz_no?: string;
+    photon_amount?: number;
+    rmb_amount?: number;
+  };
 }
 
 // 登录请求类型
@@ -100,6 +113,7 @@ export type ModifyMode = 'individual' | 'json';
 export interface AppState {
   isAuthenticated: boolean;
   userId: string; // 32位用户会话ID
+  clientName: string; // 客户端名称（从cookie获取）
   currentChatSession: CurrentChatSession | null;
   chatSessions: ChatSession[]; // 当前用户的所有聊天会话
   files: FileInfo[]; // 用户文件列表 (全局)

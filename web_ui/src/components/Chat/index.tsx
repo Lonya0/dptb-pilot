@@ -274,41 +274,142 @@ function Chat() {
       >
         <div style={{
           display: 'flex',
-          alignItems: 'flex-start',
+          flexDirection: 'column',
+          alignItems: isUser ? 'flex-end' : 'flex-start',
           maxWidth: '75%',
           width: 'auto'
         }}>
-          {!isUser && (
-            <Avatar 
-              icon={<RobotOutlined />}
-              style={{ marginRight: '16px', marginTop: '4px', backgroundColor: '#1e293b', flexShrink: 0 }} 
-            />
-          )}
-          <div className={`chat-message ${isUser ? 'user' : 'assistant'}`} style={{
-            backgroundColor: isUser ? '#2563eb' : '#1e293b', // blue-600 : slate-800
-            color: isUser ? '#ffffff' : '#e2e8f0', // white : slate-200
-            padding: '12px 16px',
-            borderRadius: '12px',
-            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            width: 'auto'
           }}>
-            {isUser ? (
-              <Text style={{ color: 'white' }}>{msg.content}</Text>
-            ) : (
-              <div className="markdown-content">
-                {formatMessage(msg.content)}
-              </div>
+            {!isUser && (
+              <Avatar
+                icon={<RobotOutlined />}
+                style={{ marginRight: '16px', marginTop: '4px', backgroundColor: '#1e293b', flexShrink: 0 }}
+              />
             )}
-            {!isComplete && state.responding && (
-              <div style={{ display: 'inline-block', marginLeft: '8px' }}>
-                <Spin size="small" />
-              </div>
+            <div className={`chat-message ${isUser ? 'user' : 'assistant'}`} style={{
+              backgroundColor: isUser ? '#2563eb' : '#1e293b', // blue-600 : slate-800
+              color: isUser ? '#ffffff' : '#e2e8f0', // white : slate-200
+              padding: '12px 16px',
+              borderRadius: '12px',
+              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+            }}>
+              {isUser ? (
+                <Text style={{ color: 'white' }}>{msg.content}</Text>
+              ) : (
+                <div className="markdown-content">
+                  {formatMessage(msg.content)}
+                </div>
+              )}
+              {!isComplete && state.responding && (
+                <div style={{ display: 'inline-block', marginLeft: '8px' }}>
+                  <Spin size="small" />
+                </div>
+              )}
+            </div>
+            {isUser && (
+              <Avatar
+                icon={<UserOutlined />}
+                style={{ marginLeft: '16px', marginTop: '4px', backgroundColor: '#0ea5e9', flexShrink: 0 }}
+              />
             )}
           </div>
-          {isUser && (
-            <Avatar 
-              icon={<UserOutlined />} 
-              style={{ marginLeft: '16px', marginTop: '4px', backgroundColor: '#0ea5e9', flexShrink: 0 }} 
-            />
+
+          {/* Token使用量和收费信息 - 仅对AI消息显示 */}
+          {!isUser && isComplete && (
+            <div style={{
+              marginTop: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              padding: '0 12px'
+            }}>
+              {/* Token使用量显示 */}
+              {msg.usage_metadata && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '12px',
+                  color: '#94a3b8'
+                }}>
+                  <span>字数: {msg.content.length}</span>
+                  <span style={{ color: '#475569' }}>|</span>
+                  <span>输入token: {msg.usage_metadata.prompt_tokens || 0}</span>
+                  <span style={{ color: '#475569' }}>|</span>
+                  <span>输出token: {msg.usage_metadata.candidates_tokens || 0}</span>
+                </div>
+              )}
+
+              {/* 收费信息显示 */}
+              {msg.charge_result && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '11px',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  backgroundColor: msg.charge_result.success
+                    ? ((msg.charge_result.photon_amount || 0) > 0
+                        ? 'rgba(34, 197, 94, 0.1)'  // green-100
+                        : (msg.charge_result.message?.includes('累积')
+                            ? 'rgba(59, 130, 246, 0.1)'  // blue-500
+                            : 'rgba(148, 163, 184, 0.1)'))  // gray-400
+                    : 'rgba(239, 68, 68, 0.1)',  // red-500
+                  border: `1px solid ${msg.charge_result.success
+                    ? ((msg.charge_result.photon_amount || 0) > 0
+                        ? 'rgba(34, 197, 94, 0.2)'
+                        : (msg.charge_result.message?.includes('累积')
+                            ? 'rgba(59, 130, 246, 0.2)'
+                            : 'rgba(148, 163, 184, 0.2)'))
+                    : 'rgba(239, 68, 68, 0.2)'}`,
+                  color: msg.charge_result.success
+                    ? ((msg.charge_result.photon_amount || 0) > 0
+                        ? '#22c55e'  // green-500
+                        : (msg.charge_result.message?.includes('累积')
+                            ? '#3b82f6'  // blue-500
+                            : '#94a3b8'))  // gray-400
+                    : '#ef4444'  // red-500
+                }}>
+                  <div style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: msg.charge_result.success
+                      ? ((msg.charge_result.photon_amount || 0) > 0
+                          ? '#22c55e'
+                          : (msg.charge_result.message?.includes('累积')
+                              ? '#3b82f6'
+                              : '#94a3b8'))
+                      : '#ef4444'
+                  }}></div>
+                  <span style={{ fontWeight: 500 }}>
+                    {msg.charge_result.success
+                      ? ((msg.charge_result.photon_amount || 0) > 0
+                          ? '✓ 收费成功'
+                          : (msg.charge_result.message?.includes('累积')
+                              ? '⏳ 费用累积中'
+                              : '✓ 免费使用'))
+                      : '✗ 收费失败'
+                    }
+                  </span>
+                  <span style={{ color: '#64748b' }}>|</span>
+                  <span>
+                    消耗光子 {msg.charge_result.photon_amount || 0} | RMB {(msg.charge_result.rmb_amount || 0).toFixed(2)} 元
+                  </span>
+                  {msg.charge_result.biz_no && (
+                    <>
+                      <span style={{ color: '#64748b' }}>|</span>
+                      <span style={{ fontFamily: 'monospace' }}>订单: {msg.charge_result.biz_no}</span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -365,16 +466,16 @@ function Chat() {
           >
             {state.language === 'zh' ? '中 / En' : 'En / 中'}
           </Button>
-          <Tooltip title={`User ID: ${state.userId}`}>
-            <Tag icon={<UserOutlined />} color="blue" style={{ 
-              margin: 0, 
-              padding: '6px 12px', 
+          <Tooltip title={`Session ID: ${state.userId}${state.clientName ? `\nClient Name: ${state.clientName}` : ''}`}>
+            <Tag icon={<UserOutlined />} color="blue" style={{
+              margin: 0,
+              padding: '6px 12px',
               borderRadius: '20px',
               background: 'rgba(14, 165, 233, 0.1)',
               border: '1px solid rgba(14, 165, 233, 0.2)',
               color: '#0ea5e9'
             }}>
-              {state.userId?.slice(0, 4)}...{state.userId?.slice(-4)}
+              {state.clientName || `${state.userId?.slice(0, 4)}...${state.userId?.slice(-4)}`}
             </Tag>
           </Tooltip>
           <Tooltip title={t.clearChat}>

@@ -190,6 +190,7 @@ export class WebSocketService {
         this.ws.onmessage = (event) => {
           try {
             const message: WSMessage = JSON.parse(event.data);
+            console.log('WebSocket收到消息:', message.type, message);
             this.messageHandlers.forEach(handler => handler(message));
           } catch (error) {
             console.error('解析WebSocket消息失败:', error);
