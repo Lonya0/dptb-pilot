@@ -41,8 +41,8 @@ export const translations = {
     submitJson: '提交JSON',
     waitingForTool: '等待工具调用',
     waitingForToolDesc: '当Agent调用MCP工具时，此处会显示工具参数供您确认或修改。',
-    localExecution: '本地执行',
-    bohriumCloud: 'Bohrium 云端',
+    localExecution: '在线',
+    bohriumCloud: '玻尔',
     
     // Files
     structureFiles: '结构文件',
@@ -114,8 +114,8 @@ export const translations = {
     submitJson: 'Submit JSON',
     waitingForTool: 'Waiting for Tool Call',
     waitingForToolDesc: 'Tool parameters will appear here for confirmation when the Agent calls a tool.',
-    localExecution: 'Local Execution',
-    bohriumCloud: 'Bohrium Cloud',
+    localExecution: 'Online',
+    bohriumCloud: 'Bohr',
 
     // Files
     structureFiles: 'Structure Files',

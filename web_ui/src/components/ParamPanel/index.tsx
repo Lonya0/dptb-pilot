@@ -266,7 +266,7 @@ function ParamPanel() {
       )}
 
       {/* Agent Status Bar */}
-      <div style={{ 
+      <div style={{
         backgroundColor: 'rgba(30, 41, 59, 0.5)', // bg-slate-800/50
         border: '1px solid rgba(51, 65, 85, 0.5)', // border-slate-700/50
         borderRadius: '8px',
@@ -280,11 +280,26 @@ function ParamPanel() {
           width: '8px',
           height: '8px',
           borderRadius: '50%',
-          backgroundColor: state.responding ? '#eab308' : '#22c55e', // yellow-500 : green-500
-          boxShadow: state.responding ? '0 0 8px rgba(234, 179, 8, 0.4)' : '0 0 8px rgba(34, 197, 94, 0.4)'
+          backgroundColor: (() => {
+            if (state.responding) return '#eab308'; // yellow-500 - 工作中
+            if (currentSchema && Object.keys(currentSchema).length > 0) return '#f97316'; // orange-500 - 等待用户传参
+            return '#22c55e'; // green-500 - 空闲
+          })(),
+          boxShadow: (() => {
+            if (state.responding) return '0 0 8px rgba(234, 179, 8, 0.4)';
+            if (currentSchema && Object.keys(currentSchema).length > 0) return '0 0 8px rgba(249, 115, 22, 0.4)';
+            return '0 0 8px rgba(34, 197, 94, 0.4)';
+          })()
         }} />
         <Text style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 500 }}>
-          {t.agentStatus}: <span style={{ color: '#cbd5e1' }}>{state.responding ? t.statusWorking : t.statusIdle}</span>
+          {t.agentStatus}: <span style={{ color: '#cbd5e1' }}>
+            {state.responding
+              ? t.statusWorking
+              : (currentSchema && Object.keys(currentSchema).length > 0)
+                ? '等待用户传参'
+                : t.statusIdle
+            }
+          </span>
         </Text>
       </div>
 

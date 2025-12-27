@@ -586,32 +586,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!targetUserId) return;
 
       try {
+        // 清除响应状态，允许切换会话
+        if (state.responding) {
+          dispatch({ type: 'SET_RESPONDING', payload: false });
+        }
+
         // 优先从state中查找，因为state应该是最新的
         // 注意：这里的state.chatSessions可能也是旧的，如果刚加载完
         // 但我们已经通过loadChatHistory更新了state，不过在同一个闭包里state没变
         // 所以这里最好重新获取一下，或者依赖传入的参数（如果能传入sessions最好）
         // 简单起见，我们尝试从localStorage读取作为兜底，或者信任state（如果是在后续渲染周期调用）
-        
+
         // 在login流程中，loadChatHistory刚跑完，state.chatSessions是旧的([])
         // 所以必须从localStorage或者API重新获取，或者...
         // 实际上loadChatHistory返回了sessions，login函数里有sessions变量
         // 但switchToChatSession无法直接访问那个变量除非传进来
-        
+
         // 让我们尝试从localStorage读取，因为loadChatHistory应该已经更新了localStorage (通过useEffect? 不，useEffect也是异步的)
         // 等等，loadChatHistory dispatch了SET_CHAT_SESSIONS，但useEffect依赖state.chatSessions
         // 如果state没变，useEffect不会触发？
         // 不，dispatch触发重渲染，useEffect在重渲染后运行。
         // 但在login函数执行期间，重渲染还没发生。
-        
+
         // 所以：loadChatHistory -> dispatch -> (login continues) -> switchToChatSession
         // 此时 localStorage 可能还没更新！
-        
-        // 最稳妥的办法：Login直接调用 dispatch({ type: 'SET_CURRENT_CHAT_SESSION', ... }) 
+
+        // 最稳妥的办法：Login直接调用 dispatch({ type: 'SET_CURRENT_CHAT_SESSION', ... })
         // 而不是调用 switchToChatSession action?
         // 或者让 switchToChatSession 接受 sessions 数组?
-        
+
         let targetSession = state.chatSessions.find(s => s.chat_id === chatId);
-        
+
         if (!targetSession) {
              const savedSessions = localStorage.getItem(`chat_sessions_${targetUserId}`);
              if (savedSessions) {
@@ -619,10 +624,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
                targetSession = chatSessions.find(s => s.chat_id === chatId);
              }
         }
-        
+
         // 如果还是找不到（因为localStorage也没更新），我们需要一种方式
         // 也许我们应该让 switchToChatSession 支持传入 session 对象？
-        
+
         if (targetSession) {
             const currentChatSession: CurrentChatSession = {
               chat_id: targetSession.chat_id,

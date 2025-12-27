@@ -25,7 +25,9 @@ import {
   LineChartOutlined,
   SettingOutlined,
   SearchOutlined,
-  GlobalOutlined
+  GlobalOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import StructureViewer from '../StructureViewer';
@@ -47,6 +49,8 @@ function Chat() {
   const { state, actions } = useApp();
   const [inputValue, setInputValue] = useState('');
   const [activeTab, setActiveTab] = useState('params');
+  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -130,6 +134,51 @@ function Chat() {
   };
 
   const [uploading, setUploading] = useState(false);
+
+  // 处理左侧栏折叠/展开
+  const handleLeftSidebarToggle = () => {
+    setLeftSidebarCollapsed(!leftSidebarCollapsed);
+  };
+
+  // 处理右侧栏折叠/展开
+  const handleRightSidebarToggle = () => {
+    setRightSidebarCollapsed(!rightSidebarCollapsed);
+  };
+
+  // 监听schema变化，当有参数需要输入时自动展开右侧栏并切换到参数页面
+  useEffect(() => {
+    const checkSchemaAndOpenRightPanel = async () => {
+      if (!state.userId) return;
+      try {
+        const schema = await actions.getCurrentSchema();
+        if (schema && Object.keys(schema).length > 0) {
+          // 有参数需要输入，展开右侧栏并切换到参数页面
+          setActiveTab('params');
+          if (rightSidebarCollapsed) {
+            setRightSidebarCollapsed(false);
+          }
+        }
+      } catch (error) {
+        console.error('检查schema失败:', error);
+      }
+    };
+
+    // 每2秒检查一次
+    const interval = setInterval(checkSchemaAndOpenRightPanel, 2000);
+    return () => clearInterval(interval);
+  }, [state.userId, actions, rightSidebarCollapsed]);
+
+  // 监听activeTab变化，当切换到参数页面时检查是否需要展开右侧栏
+  useEffect(() => {
+    if (activeTab === 'params') {
+      // 检查是否有schema需要输入
+      actions.getCurrentSchema().then(schema => {
+        if (schema && Object.keys(schema).length > 0 && rightSidebarCollapsed) {
+          setRightSidebarCollapsed(false);
+        }
+      });
+    }
+  }, [activeTab, actions, rightSidebarCollapsed]);
 
   const handleUpload = async (file: File) => {
     if (!state.userId) {
@@ -262,6 +311,8 @@ function Chat() {
   const renderMessage = (msg: any, index: number) => {
     const isUser = msg.role === 'user';
     const isComplete = !!msg.timestamp;
+    const history = state.currentChatSession?.history || [];
+    const isLastMessage = index === history.length - 1;
 
     return (
       <div
@@ -304,7 +355,8 @@ function Chat() {
                   {formatMessage(msg.content)}
                 </div>
               )}
-              {!isComplete && state.responding && (
+              {/* 只在最后一条未完成的AI消息显示加载图标 */}
+              {!isUser && !isComplete && isLastMessage && state.responding && (
                 <div style={{ display: 'inline-block', marginLeft: '8px' }}>
                   <Spin size="small" />
                 </div>
@@ -444,18 +496,31 @@ function Chat() {
         height: '64px',
         zIndex: 10
       }}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <img 
-            src="/pilot_logo_white.png" 
-            alt="DeepTB Pilot" 
-            style={{ 
-              height: '32px', 
-              filter: 'drop-shadow(0 0 5px rgba(59, 130, 246, 0.5))' 
-            }} 
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* 左侧栏折叠/展开按钮 */}
+          <Button
+            icon={leftSidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={handleLeftSidebarToggle}
+            className="glass-btn"
+          />
+          <img
+            src="/pilot_logo_white.png"
+            alt="DeepTB Pilot"
+            style={{
+              height: '32px',
+              filter: 'drop-shadow(0 0 5px rgba(59, 130, 246, 0.5))'
+            }}
           />
         </div>
 
         <Space size="middle">
+          {/* 右侧栏折叠/展开按钮 */}
+          <Button
+            icon={<SettingOutlined />}
+            onClick={handleRightSidebarToggle}
+            className="glass-btn"
+            style={{ color: rightSidebarCollapsed ? '#94a3b8' : '#0ea5e9' }}
+          />
           <Button
             icon={<GlobalOutlined />}
             onClick={actions.toggleLanguage}
@@ -500,12 +565,15 @@ function Chat() {
 
       <Layout style={{ background: 'transparent' }}>
         {/* Left Sidebar: History */}
-        <Sider 
-          width={280} 
+        <Sider
+          width={280}
+          collapsed={leftSidebarCollapsed}
+          collapsedWidth={0}
           className="glass-panel"
-          style={{ 
+          style={{
             borderRight: '1px solid rgba(255, 255, 255, 0.05)',
-            background: '#0f172a' // slate-900
+            background: '#0f172a', // slate-900
+            transition: 'all 0.2s'
           }}
         >
           <div style={{ padding: '20px', height: '100%', overflowY: 'auto' }}>
@@ -687,67 +755,73 @@ function Chat() {
             </div>
           </div>
 
-          <Sider 
-            width={340} 
+          {/* Right Sidebar */}
+          <Sider
+            width={340}
+            collapsed={rightSidebarCollapsed}
+            collapsedWidth={0}
             theme="light"
-            style={{ 
+            style={{
               borderLeft: '1px solid rgba(51, 65, 85, 0.5)', // border-slate-700
               background: '#0f172a', // slate-900
-              padding: '16px' // p-4
+              padding: rightSidebarCollapsed ? '0' : '16px', // p-4
+              transition: 'all 0.2s'
             }}
           >
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              {/* Segmented Control */}
-              <div style={{ 
-                width: '100%', 
-                backgroundColor: '#1e293b', // slate-800
-                padding: '4px', 
-                borderRadius: '8px', 
-                display: 'flex', 
-                marginBottom: '24px' 
-              }}>
-                <div 
-                  onClick={() => setActiveTab('params')}
-                  style={{
-                    flex: 1,
-                    textAlign: 'center',
-                    padding: '6px 0',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    backgroundColor: activeTab === 'params' ? '#2563eb' : 'transparent', // blue-600
-                    color: activeTab === 'params' ? 'white' : '#94a3b8', // slate-400
-                    boxShadow: activeTab === 'params' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
-                  }}
-                >
-                  {t.parameters}
+            {!rightSidebarCollapsed && (
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                {/* Segmented Control */}
+                <div style={{
+                  width: '100%',
+                  backgroundColor: '#1e293b', // slate-800
+                  padding: '4px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  marginBottom: '24px'
+                }}>
+                  <div
+                    onClick={() => setActiveTab('params')}
+                    style={{
+                      flex: 1,
+                      textAlign: 'center',
+                      padding: '6px 0',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      backgroundColor: activeTab === 'params' ? '#2563eb' : 'transparent', // blue-600
+                      color: activeTab === 'params' ? 'white' : '#94a3b8', // slate-400
+                      boxShadow: activeTab === 'params' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
+                    }}
+                  >
+                    {t.parameters}
+                  </div>
+                  <div
+                    onClick={() => setActiveTab('files')}
+                    style={{
+                      flex: 1,
+                      textAlign: 'center',
+                      padding: '6px 0',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      backgroundColor: activeTab === 'files' ? '#2563eb' : 'transparent',
+                      color: activeTab === 'files' ? 'white' : '#94a3b8',
+                      boxShadow: activeTab === 'files' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
+                    }}
+                  >
+                    {t.files}
+                  </div>
                 </div>
-                <div 
-                  onClick={() => setActiveTab('files')}
-                  style={{
-                    flex: 1,
-                    textAlign: 'center',
-                    padding: '6px 0',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    backgroundColor: activeTab === 'files' ? '#2563eb' : 'transparent',
-                    color: activeTab === 'files' ? 'white' : '#94a3b8',
-                    boxShadow: activeTab === 'files' ? '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none'
-                  }}
-                >
-                  {t.files}
-                </div>
-              </div>
 
-              <div style={{ flex: 1, overflowY: 'auto' }}>
-                {activeTab === 'params' ? <ParamPanel /> : <FilePanel />}
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                  {activeTab === 'params' ? <ParamPanel /> : <FilePanel />}
+                </div>
               </div>
-            </div>
+            )}
           </Sider>
         </Content>
       </Layout>
