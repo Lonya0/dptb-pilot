@@ -49,8 +49,13 @@ function Chat() {
   const { state, actions } = useApp();
   const [inputValue, setInputValue] = useState('');
   const [activeTab, setActiveTab] = useState('params');
-  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
-  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
+  // 判断是否为移动端，设置侧边栏初始状态
+  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(
+    window.innerWidth <= 768
+  );
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(
+    window.innerWidth <= 768
+  );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -135,14 +140,38 @@ function Chat() {
 
   const [uploading, setUploading] = useState(false);
 
-  // 处理左侧栏折叠/展开
+  // 处理左侧栏折叠/展开（移动端：互斥；电脑端：独立）
   const handleLeftSidebarToggle = () => {
-    setLeftSidebarCollapsed(!leftSidebarCollapsed);
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      // 移动端：打开左侧栏时关闭右侧栏
+      if (leftSidebarCollapsed) {
+        setRightSidebarCollapsed(true);
+        setLeftSidebarCollapsed(false);
+      } else {
+        setLeftSidebarCollapsed(true);
+      }
+    } else {
+      // 电脑端：独立切换
+      setLeftSidebarCollapsed(!leftSidebarCollapsed);
+    }
   };
 
-  // 处理右侧栏折叠/展开
+  // 处理右侧栏折叠/展开（移动端：互斥；电脑端：独立）
   const handleRightSidebarToggle = () => {
-    setRightSidebarCollapsed(!rightSidebarCollapsed);
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      // 移动端：打开右侧栏时关闭左侧栏
+      if (rightSidebarCollapsed) {
+        setLeftSidebarCollapsed(true);
+        setRightSidebarCollapsed(false);
+      } else {
+        setRightSidebarCollapsed(true);
+      }
+    } else {
+      // 电脑端：独立切换
+      setRightSidebarCollapsed(!rightSidebarCollapsed);
+    }
   };
 
   // 监听schema变化，当有参数需要输入时自动展开右侧栏并切换到参数页面
@@ -155,6 +184,11 @@ function Chat() {
           // 有参数需要输入，展开右侧栏并切换到参数页面
           setActiveTab('params');
           if (rightSidebarCollapsed) {
+            // 移动端：关闭左侧栏，展开右侧栏
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile && !leftSidebarCollapsed) {
+              setLeftSidebarCollapsed(true);
+            }
             setRightSidebarCollapsed(false);
           }
         }
@@ -166,7 +200,7 @@ function Chat() {
     // 每2秒检查一次
     const interval = setInterval(checkSchemaAndOpenRightPanel, 2000);
     return () => clearInterval(interval);
-  }, [state.userId, actions, rightSidebarCollapsed]);
+  }, [state.userId, actions, rightSidebarCollapsed, leftSidebarCollapsed]);
 
   // 监听activeTab变化，当切换到参数页面时检查是否需要展开右侧栏
   useEffect(() => {
@@ -174,11 +208,16 @@ function Chat() {
       // 检查是否有schema需要输入
       actions.getCurrentSchema().then(schema => {
         if (schema && Object.keys(schema).length > 0 && rightSidebarCollapsed) {
+          // 移动端：关闭左侧栏，展开右侧栏
+          const isMobile = window.innerWidth <= 768;
+          if (isMobile && !leftSidebarCollapsed) {
+            setLeftSidebarCollapsed(true);
+          }
           setRightSidebarCollapsed(false);
         }
       });
     }
-  }, [activeTab, actions, rightSidebarCollapsed]);
+  }, [activeTab, actions, rightSidebarCollapsed, leftSidebarCollapsed]);
 
   const handleUpload = async (file: File) => {
     if (!state.userId) {
@@ -483,9 +522,9 @@ function Chat() {
   }
 
   return (
-    <Layout style={{ height: '100vh', background: '#020617' }}> {/* slate-950 */}
+    <Layout style={{ height: '100vh', maxHeight: '100vh', overflow: 'hidden', background: '#020617' }}> {/* slate-950 */}
       {/* Top Navigation */}
-      <Header style={{
+      <Header className="app-header" style={{
         background: 'rgba(15, 23, 42, 0.8)', // slate-900/80
         backdropFilter: 'blur(16px)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
@@ -494,15 +533,21 @@ function Chat() {
         justifyContent: 'space-between',
         alignItems: 'center',
         height: '64px',
-        zIndex: 10
+        zIndex: 10,
+        position: 'relative',
+        flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* 左侧栏折叠/展开按钮 */}
-          <Button
-            icon={leftSidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={handleLeftSidebarToggle}
-            className="glass-btn"
-          />
+          {/* 左侧栏折叠/展开按钮 - 仅移动端 */}
+          <Tooltip title={t.chatHistory}>
+            <Button
+              icon={leftSidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={handleLeftSidebarToggle}
+              className="glass-btn mobile-only"
+              shape="circle"
+              size="small"
+            />
+          </Tooltip>
           <img
             src="/pilot_logo_white.png"
             alt="DeepTB Pilot"
@@ -513,32 +558,47 @@ function Chat() {
           />
         </div>
 
-        <Space size="middle">
-          {/* 右侧栏折叠/展开按钮 */}
-          <Button
-            icon={<SettingOutlined />}
-            onClick={handleRightSidebarToggle}
-            className="glass-btn"
-            style={{ color: rightSidebarCollapsed ? '#94a3b8' : '#0ea5e9' }}
-          />
+        <Space size="small">
+          {/* 右侧栏折叠/展开按钮 - 仅移动端 */}
+          <Tooltip title={t.parameters}>
+            <Button
+              icon={<SettingOutlined />}
+              onClick={handleRightSidebarToggle}
+              className="glass-btn mobile-only"
+              shape="circle"
+              size="small"
+              style={{ color: rightSidebarCollapsed ? '#94a3b8' : '#0ea5e9' }}
+            />
+          </Tooltip>
+          {/* 语言切换按钮 - 桌面端显示文字 */}
           <Button
             icon={<GlobalOutlined />}
             onClick={actions.toggleLanguage}
-            className="glass-btn"
+            className="glass-btn desktop-only"
             shape="round"
             size="small"
             style={{ color: '#94a3b8', borderColor: 'rgba(255,255,255,0.1)' }}
           >
             {state.language === 'zh' ? '中 / En' : 'En / 中'}
           </Button>
+          {/* 移动端只显示语言图标 */}
+          <Button
+            icon={<GlobalOutlined />}
+            onClick={actions.toggleLanguage}
+            className="glass-btn mobile-only"
+            shape="circle"
+            size="small"
+            style={{ color: '#94a3b8' }}
+          />
           <Tooltip title={`Session ID: ${state.userId}${state.clientName ? `\nClient Name: ${state.clientName}` : ''}`}>
-            <Tag icon={<UserOutlined />} color="blue" style={{
+            <Tag icon={<UserOutlined />} color="blue" className="desktop-only" style={{
               margin: 0,
-              padding: '6px 12px',
+              padding: '4px 10px',
               borderRadius: '20px',
               background: 'rgba(14, 165, 233, 0.1)',
               border: '1px solid rgba(14, 165, 233, 0.2)',
-              color: '#0ea5e9'
+              color: '#0ea5e9',
+              fontSize: '12px'
             }}>
               {state.clientName || `${state.userId?.slice(0, 4)}...${state.userId?.slice(-4)}`}
             </Tag>
@@ -550,6 +610,7 @@ function Chat() {
               disabled={state.loading}
               className="glass-btn"
               shape="circle"
+              size="small"
             />
           </Tooltip>
           <Tooltip title={t.logout}>
@@ -558,31 +619,36 @@ function Chat() {
               onClick={handleLogout}
               className="glass-btn"
               shape="circle"
+              size="small"
             />
           </Tooltip>
         </Space>
       </Header>
 
-      <Layout style={{ background: 'transparent' }}>
+      <Layout style={{ background: 'transparent', overflow: 'hidden' }}>
         {/* Left Sidebar: History */}
         <Sider
           width={280}
           collapsed={leftSidebarCollapsed}
           collapsedWidth={0}
-          className="glass-panel"
+          className="glass-panel mobile-sidebar"
           style={{
             borderRight: '1px solid rgba(255, 255, 255, 0.05)',
             background: '#0f172a', // slate-900
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
+            position: 'relative',
+            zIndex: 20,
+            height: '100%',
+            overflow: 'auto'
           }}
         >
-          <div style={{ padding: '20px', height: '100%', overflowY: 'auto' }}>
+          <div style={{ padding: '20px', height: '100%' }}>
             <SessionPanel />
           </div>
         </Sider>
 
         {/* Center: Chat Area */}
-        <Content style={{ display: 'flex', position: 'relative', background: '#020617' }}> {/* slate-950 */}
+        <Content style={{ display: 'flex', position: 'relative', background: '#020617', zIndex: 10, overflow: 'hidden' }}> {/* slate-950 */}
           <div 
             style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -594,6 +660,7 @@ function Chat() {
           >
             <div
               ref={chatContainerRef}
+              className="chat-container"
               style={{
                 flex: 1,
                 padding: '24px 40px 100px 40px', // Extra padding at bottom for floating input
@@ -602,14 +669,15 @@ function Chat() {
               }}
             >
               {(!state.currentChatSession?.history || state.currentChatSession.history.length === 0) ? (
-                <div style={{ 
-                  height: '100%', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  justifyContent: 'center', 
+                <div className="welcome-container" style={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
                   alignItems: 'center',
                   maxWidth: '800px',
-                  margin: '0 auto'
+                  margin: '0 auto',
+                  width: '100%'
                 }}>
                   <Title level={2} style={{ marginBottom: '10px', textAlign: 'center', color: '#e2e8f0' }}>
                     {t.welcomeTitle}
@@ -617,19 +685,14 @@ function Chat() {
                   <Text style={{ marginBottom: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '16px' }}>
                     {t.welcomeSubtitle}
                   </Text>
-                  
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: '1fr 1fr', 
-                    gap: '20px', 
-                    width: '100%' 
-                  }}>
+
+                  <div className="shortcut-cards-grid">
                     {SHORTCUT_CARDS.map((card, idx) => (
-                      <div 
+                      <div
                         key={idx}
                         className="glass-card"
-                        style={{ 
-                          padding: '24px', 
+                        style={{
+                          padding: '24px',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -639,10 +702,10 @@ function Chat() {
                         }}
                         onClick={() => handleSendMessage(card.prompt)}
                       >
-                        <div style={{ 
-                          width: '48px', 
-                          height: '48px', 
-                          borderRadius: '12px', 
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '12px',
                           background: 'rgba(255,255,255,0.05)',
                           display: 'flex',
                           alignItems: 'center',
@@ -761,11 +824,16 @@ function Chat() {
             collapsed={rightSidebarCollapsed}
             collapsedWidth={0}
             theme="light"
+            className="mobile-sidebar"
             style={{
               borderLeft: '1px solid rgba(51, 65, 85, 0.5)', // border-slate-700
               background: '#0f172a', // slate-900
               padding: rightSidebarCollapsed ? '0' : '16px', // p-4
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              position: 'relative',
+              zIndex: 20,
+              height: '100%',
+              overflow: 'auto'
             }}
           >
             {!rightSidebarCollapsed && (

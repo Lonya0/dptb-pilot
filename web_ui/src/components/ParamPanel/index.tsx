@@ -39,12 +39,30 @@ function ParamPanel() {
   const [modifyMode, setModifyMode] = useState<ModifyMode>('individual');
   const [jsonText, setJsonText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [bohrConfig, setBohrConfig] = useState({
-    username: '',
-    password: '',
-    project_id: ''
+
+  // 从localStorage加载bohrium配置
+  const [bohrConfig, setBohrConfig] = useState(() => {
+    const saved = localStorage.getItem('bohrConfig');
+    return saved ? JSON.parse(saved) : {
+      username: '',
+      password: '',
+      project_id: ''
+    };
   });
   const [lastSchemaHash, setLastSchemaHash] = useState<string>('');
+
+  // 持久化保存bohrium配置到localStorage
+  useEffect(() => {
+    localStorage.setItem('bohrConfig', JSON.stringify(bohrConfig));
+  }, [bohrConfig]);
+
+  // 从localStorage加载executionMode
+  useEffect(() => {
+    const savedMode = localStorage.getItem('executionMode') as ExecutionMode;
+    if (savedMode && (savedMode === 'Local' || savedMode === 'Bohr')) {
+      setExecutionMode(savedMode);
+    }
+  }, []);
 
   useEffect(() => {
     // 获取当前需要修改的参数schema
@@ -92,7 +110,8 @@ function ParamPanel() {
 
   const handleExecutionModeChange = (value: ExecutionMode) => {
     setExecutionMode(value);
-    // 可以在这里触发后端配置更新
+    // 保存到localStorage
+    localStorage.setItem('executionMode', value);
     console.log('执行模式变更为:', value);
   };
 
@@ -119,10 +138,54 @@ function ParamPanel() {
 
       if (currentSchema.input_schema?.properties) {
         Object.entries(currentSchema.input_schema.properties).forEach(([key, prop]) => {
-          (modifiedSchema.input_schema.properties as any)[key] = {
-            ...prop,
-            user_input: values[key]
-          };
+          // 如果是Bohr模式且参数名为Executor或Storage，注入配置
+          if (executionMode === 'Bohr') {
+            if (key === 'Executor') {
+              (modifiedSchema.input_schema.properties as any)[key] = {
+                ...prop,
+                user_input: {
+                  type: 'dispatcher',
+                  machine: {
+                    batch_type: 'Bohrium',
+                    context_type: 'Bohrium',
+                    remote_profile: {
+                      email: bohrConfig.username,
+                      password: bohrConfig.password,
+                      program_id: parseInt(bohrConfig.project_id),
+                      input_data: {
+                        image_name: 'registry.dp.tech/dptech/dp/native/prod-19853/dpa-mcp:0.0.0',
+                        job_type: 'container',
+                        platform: 'ali',
+                        scass_type: '1 * NVIDIA V100_32g'
+                      }
+                    }
+                  }
+                }
+              };
+            } else if (key === 'Storage') {
+              (modifiedSchema.input_schema.properties as any)[key] = {
+                ...prop,
+                user_input: {
+                  type: 'bohrium',
+                  username: bohrConfig.username,
+                  password: bohrConfig.password,
+                  program_id: parseInt(bohrConfig.project_id)
+                }
+              };
+            } else {
+              // 其他参数使用用户输入的值
+              (modifiedSchema.input_schema.properties as any)[key] = {
+                ...prop,
+                user_input: values[key]
+              };
+            }
+          } else {
+            // Local模式，使用用户输入的值
+            (modifiedSchema.input_schema.properties as any)[key] = {
+              ...prop,
+              user_input: values[key]
+            };
+          }
         });
       }
 
@@ -226,10 +289,13 @@ function ParamPanel() {
           onChange={handleExecutionModeChange}
           style={{ width: '100%' }}
           className="glass-select-dense"
-          dropdownStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)' }}
+          dropdownStyle={{
+            backgroundColor: '#1e293b',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}
         >
-          <Option value="Local">{t.localExecution}</Option>
-          <Option value="Bohr">{t.bohriumCloud}</Option>
+          <Option value="Local" style={{ color: '#e2e8f0' }}>{t.localExecution}</Option>
+          <Option value="Bohr" style={{ color: '#e2e8f0' }}>{t.bohriumCloud}</Option>
         </Select>
       </div>
 
@@ -253,6 +319,16 @@ function ParamPanel() {
               value={bohrConfig.password}
               onChange={(e) => handleBohrConfigChange('password', e.target.value)}
               className="glass-input-dense"
+              style={{
+                backgroundColor: 'rgba(15, 23, 42, 0.6) !important',
+                color: '#f1f5f9 !important'
+              }}
+              styles={{
+                input: {
+                  backgroundColor: 'transparent',
+                  color: '#f1f5f9'
+                }
+              }}
             />
             <Input
               placeholder="Project ID"
