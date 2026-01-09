@@ -5,7 +5,7 @@
 # 1. Port occupancy check（50001–50003）
 ############################
 for port in 50001 50002 50003; do
-  if netstat -lnt 2>/dev/null | awk '{print $4}' | grep -q ":${port}$"; then
+  if netstat -lnt | grep -q "[.:]${port}[[:space:]]"; then
     echo "DeePTB-Pilot-Startup-Script:[ERROR] Port ${port} is already in use. Aborting."
     exit 1
   fi
@@ -26,19 +26,21 @@ echo "DeePTB-Pilot-Startup-Script:[INFO] dptb-tools started, waiting for port 50
 ############################
 # 3. Listen on port 50001 (up to 120 seconds)
 ############################
-timeout=120
+timeout=240
 elapsed=0
 
-echo "DeePTB-Pilot-Startup-Script:[INFO] Port 50001 is now listening."
-
 while true; do
-  if netstat -lnt 2>/dev/null | awk '{print $4}' | grep -q ":50001$"; then
+  if netstat -lnt | grep -q "[.:]50001[[:space:]]"; then
     break
   fi
 
   if [ "$elapsed" -ge "$timeout" ]; then
     echo "DeePTB-Pilot-Startup-Script:[ERROR] Timeout: port 50001 did not respond within ${timeout}s."
     exit 1
+  fi
+
+  if [ $((elapsed % 30)) -eq 0 ] && [ "$elapsed" -ne 0 ]; then
+    echo "DeePTB-Pilot-Startup-Script:[INFO] Waiting for port 50001... (${elapsed}s elapsed)"
   fi
 
   sleep 1

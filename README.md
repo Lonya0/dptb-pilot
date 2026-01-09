@@ -125,7 +125,7 @@ dptb-ai-run
 ```
 Or run the script directly:
 ```bash
-./start.sh
+./activate.sh
 ```
 This will launch both the backend and tools server in parallel, handling clean shutdown when you press `Ctrl+C`.
 
