@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "dptb_pilot"
 version = "0.1.0"
 description = "Unified AI Pilot for DeePTB"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "LiteLlm",
     "google-adk",
