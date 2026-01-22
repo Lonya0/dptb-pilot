@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { LoginRequest, LoginResponse, FileInfo, ToolSchema, WSMessage, AppConfig, ChatMessage } from '../types';
+import type { LoginRequest, LoginResponse, FileInfo, ToolSchema, WSMessage, AppConfig, ChatMessage, ModifyParamsRequest, TerminateExecutionRequest, TerminateExecutionResponse } from '../types';
 
 // 强制使用相对路径，确保通过Vite代理
 const API_BASE_URL = '/api';
@@ -112,11 +112,14 @@ export const apiService = {
   },
 
   // 提交修改后的参数
-  async modifyParameters(sessionId: string, modifiedSchema: ToolSchema): Promise<{ message: string; modified_args: any }> {
-    const response = await api.post('/modify-params', {
-      session_id: sessionId,
-      modified_schema: modifiedSchema,
-    });
+  async modifyParameters(request: ModifyParamsRequest): Promise<{ message: string; modified_args: any }> {
+    const response = await api.post('/modify-params', request);
+    return response.data;
+  },
+
+  // 终止执行
+  async terminateExecution(request: TerminateExecutionRequest): Promise<TerminateExecutionResponse> {
+    const response = await api.post('/terminate-execution', request);
     return response.data;
   },
 

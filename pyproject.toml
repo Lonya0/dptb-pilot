@@ -45,8 +45,9 @@ torch-scatter = ["torch"]
 dptb-pilot = "dptb_pilot.main:main"
 dptb-tools = "dptb_pilot.tools.server:main"
 
-[tool.setuptools]
-packages = ["dptb_pilot", "dptb_pilot.core", "dptb_pilot.server", "dptb_pilot.tools", "dptb_pilot.tools.modules"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dptb*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

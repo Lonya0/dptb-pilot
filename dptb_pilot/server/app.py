@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import uuid
+import copy
 from typing import Dict, List, Optional, Any, AsyncGenerator
 from pathlib import Path
 from datetime import datetime
@@ -38,6 +39,10 @@ pending_events: Dict[str, asyncio.Event] = {}
 unmodified_schema_store: Dict[str, Dict] = {}
 modified_schema_store: Dict[str, Dict] = {}
 modified_args_store: Dict[str, Dict] = {}
+
+# 终止执行相关状态
+cancel_execution_events: Dict[str, asyncio.Event] = {}
+termination_requested: Dict[str, bool] = {}
 
 # 配置信息
 target_tools: List[str] = []
@@ -92,6 +97,134 @@ class ChatMessage(BaseModel):
 class ModifyParamsRequest(BaseModel):
     session_id: str
     modified_schema: Dict[str, Any]
+    execution_mode: str = 'Local'
+    selected_machine_id: Optional[str] = None
+    remote_machine: Optional[Dict[str, Any]] = None  # 包含完整的远程机器配置
+
+class TerminateExecutionRequest(BaseModel):
+    session_id: str
+
+
+def generate_executor_and_storage(
+    execution_mode: str,
+    remote_machine: Optional[Dict[str, Any]],
+    tool_schema: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    根据执行模式和远程机器配置自动生成 Executor 和 Storage 参数
+
+    Args:
+        execution_mode: 执行模式 ('Local' 或 'Remote')
+        remote_machine: 远程机器配置
+        tool_schema: 工具 schema
+
+    Returns:
+        更新后的工具 schema，包含自动生成的 Executor 和 Storage 参数
+    """
+    if execution_mode != 'Remote' or not remote_machine:
+        return tool_schema
+
+    machine_type = remote_machine.get('type')
+    config = remote_machine.get('config', {})
+
+    if not machine_type or not config:
+        logger.warning(f"[AutoGenerate] 无效的远程机器配置: {remote_machine}")
+        return tool_schema
+
+    logger.info("=" * 80)
+    logger.info(f"[AutoGenerate] 开始自动生成 Executor 和 Storage 参数")
+    logger.info(f"[AutoGenerate] 机器类型: {machine_type}")
+    logger.info(f"[AutoGenerate] 机器配置: {json.dumps(config, ensure_ascii=False, indent=2)}")
+
+    # 深拷贝 tool_schema 避免修改原对象
+    result_schema = copy.deepcopy(tool_schema)
+
+    # 更新 schema 中的 Executor 和 Storage 参数
+    properties = result_schema.get('input_schema', {}).get('properties', {})
+
+    # 生成 Executor 配置（支持大写和小写的 key）
+    executor_key = None
+    for key in ['Executor', 'executor']:
+        if key in properties:
+            executor_key = key
+            break
+
+    if executor_key:
+        if machine_type == 'Bohrium':
+            executor_config = {
+                'type': 'dispatcher',
+                'machine': {
+                    'batch_type': 'Bohrium',
+                    'context_type': 'Bohrium',
+                    'remote_profile': {
+                        'email': config.get('username'),
+                        'password': config.get('password'),
+                        'program_id': int(config.get('project_id', 0)),
+                        'input_data': {
+                            'image_name': config.get('image_name', 'registry.dp.tech/dptech/dp/native/prod-19853/dpa-mcp:0.0.0'),
+                            'job_type': 'container',
+                            'platform': 'ali',
+                            'scass_type': config.get('scass_type', '1 * NVIDIA V100_32g')
+                        }
+                    }
+                }
+            }
+            logger.info(f"[AutoGenerate] Bohrium Executor 配置已生成")
+            logger.info(f"[AutoGenerate] Executor: {json.dumps(executor_config, ensure_ascii=False, indent=2)}")
+            properties[executor_key]['user_input'] = executor_config
+
+        elif machine_type == 'Slurm':
+            executor_config = {
+                'type': 'dispatcher',
+                'machine': {
+                    'batch_type': 'Slurm',
+                    'context_type': 'SSHContext',
+                    'local_root': './',
+                    'remote_root': config.get('remote_root'),
+                    'remote_profile': {
+                        'hostname': config.get('hostname'),
+                        'username': config.get('username'),
+                        'timeout': 600,
+                        'port': 22,
+                        'key_filename': config.get('key_filename')
+                    }
+                },
+                'resource': {
+                    'number_node': int(config.get('number_node', 1)),
+                    'gpu_per_node': int(config.get('gpu_per_node', 0)) if config.get('gpu_per_node') else 0,
+                    'cpu_per_node': int(config.get('cpu_per_node', 1)) if config.get('cpu_per_node') else 1,
+                    'queue_name': config.get('queue_name'),
+                    'custom_flags': [config.get('custom_flags', ''), ''],
+                    'source_list': [],
+                    'module_list': []
+                }
+            }
+            logger.info(f"[AutoGenerate] Slurm Executor 配置已生成")
+            logger.info(f"[AutoGenerate] Executor: {json.dumps(executor_config, ensure_ascii=False, indent=2)}")
+            properties[executor_key]['user_input'] = executor_config
+
+    # 生成 Storage 配置（仅 Bohrium 类型）
+    storage_key = None
+    for key in ['Storage', 'storage']:
+        if key in properties:
+            storage_key = key
+            break
+
+    if storage_key and machine_type == 'Bohrium':
+        storage_config = {
+            'type': 'bohrium',
+            'username': config.get('username'),
+            'password': config.get('password'),
+            'program_id': int(config.get('project_id', 0))
+        }
+        logger.info(f"[AutoGenerate] Bohrium Storage 配置已生成")
+        logger.info(f"[AutoGenerate] Storage: {json.dumps(storage_config, ensure_ascii=False, indent=2)}")
+        properties[storage_key]['user_input'] = storage_config
+
+    logger.info(f"[AutoGenerate] 完成 Executor 和 Storage 参数自动生成")
+    logger.info("=" * 80)
+
+    return result_schema
 
 
 # 辅助函数 - 历史记录管理已合并到 sessions.json
@@ -105,6 +238,20 @@ async def call_agent_async(query: str, runner: Runner, user_id: str, session_id:
     content = types.Content(role='user', parts=[types.Part(text=query)])
 
     async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=content):
+        # 检查是否被终止
+        if termination_requested.get(session_id, False):
+            logger.info(f"[CallAgent] 会话 {session_id} 已请求终止")
+            yield {
+                "type": "final_response",
+                "content": "执行已终止",
+                "is_final": True
+            }
+            # 清理终止状态
+            termination_requested[session_id] = False
+            if session_id in pending_events:
+                pending_events[session_id].set()
+            break
+
         # 处理工具调用
         if event.content and event.content.parts:
             calls = event.get_function_calls()
@@ -132,8 +279,39 @@ async def call_agent_async(query: str, runner: Runner, user_id: str, session_id:
                             "tool_name": tool_name
                         })
 
-                        # 等待用户修改完成
-                        await pending_events[session_id].wait()
+                        # 等待用户修改完成或终止
+                        # 创建一个任务来检查取消事件
+                        cancel_task = None
+                        if session_id in cancel_execution_events:
+                            cancel_execution_events[session_id] = asyncio.Event()
+                            cancel_task = asyncio.create_task(cancel_execution_events[session_id].wait())
+
+                        # 等待 pending_event 或 cancel_event
+                        try:
+                            await asyncio.wait_for(pending_events[session_id].wait(), timeout=600.0)
+                        except asyncio.TimeoutError:
+                            logger.warning(f"[CallAgent] 会话 {session_id} 等待参数修改超时")
+                            break
+
+                        # 清理 cancel_task
+                        if cancel_task:
+                            cancel_task.cancel()
+                        if session_id in cancel_execution_events:
+                            cancel_execution_events[session_id] = None
+
+                        # 检查是否被终止
+                        if termination_requested.get(session_id, False):
+                            logger.info(f"[CallAgent] 会话 {session_id} 在参数修改阶段被终止")
+                            yield {
+                                "type": "final_response",
+                                "content": "执行已终止",
+                                "is_final": True
+                            }
+                            # 清理状态
+                            termination_requested[session_id] = False
+                            if session_id in pending_events:
+                                pending_events[session_id] = None
+                            break
 
                         # 使用修改后的参数
                         if session_id in modified_args_store:
@@ -416,16 +594,74 @@ async def modify_parameters(request: ModifyParamsRequest):
     session_id = request.session_id
     modified_schema = request.modified_schema
 
+    logger.info("=" * 80)
+    logger.info(f"[ModifyParams] 收到参数修改请求")
+    logger.info(f"[ModifyParams] Session ID: {session_id}")
+    logger.info(f"[ModifyParams] 工具名称: {modified_schema.get('name', 'unknown')}")
+    logger.info(f"[ModifyParams] 执行模式: {request.execution_mode}")
+    logger.info(f"[ModifyParams] 选中的机器ID: {request.selected_machine_id}")
+    logger.info(f"[ModifyParams] 修改前的Schema: {json.dumps(modified_schema, ensure_ascii=False, indent=2)}")
+    logger.info("=" * 80)
+
+    # 自动生成 Executor 和 Storage 参数
+    modified_schema = generate_executor_and_storage(
+        execution_mode=request.execution_mode,
+        remote_machine=request.remote_machine,
+        tool_schema=modified_schema
+    )
+
+    logger.info("=" * 80)
+    logger.info(f"[ModifyParams] 生成 Executor 和 Storage 后的Schema: {json.dumps(modified_schema, ensure_ascii=False, indent=2)}")
+    logger.info("=" * 80)
+
     # 提取修改后的参数
     modified_args = extract_arguments_from_schema(modified_schema)
+
+    logger.info(f"[ModifyParams] 提取后的参数: {modified_args}")
+    logger.info(f"[ModifyParams] Executor 参数: {modified_args.get('Executor')}")
+    logger.info(f"[ModifyParams] Storage 参数: {modified_args.get('Storage')}")
+
     modified_args_store[session_id] = modified_args
     modified_schema_store[session_id] = modified_schema
 
     # 恢复agent执行
     if session_id in pending_events:
+        logger.info(f"[ModifyParams] 触发事件，恢复 agent 执行")
         pending_events[session_id].set()
+    else:
+        logger.warning(f"[ModifyParams] Session {session_id} 没有待处理的事件")
 
     return {"message": "参数已更新", "modified_args": modified_args}
+
+
+@app.post("/api/terminate-execution")
+async def terminate_execution(request: TerminateExecutionRequest):
+    """终止正在执行的 agent 任务"""
+    session_id = request.session_id
+
+    logger.info("=" * 80)
+    logger.info(f"[TerminateExecution] 收到终止执行请求")
+    logger.info(f"[TerminateExecution] Session ID: {session_id}")
+    logger.info("=" * 80)
+
+    # 标记会话需要终止
+    termination_requested[session_id] = True
+
+    # 触发取消事件
+    if session_id in pending_events:
+        # 设置终止事件，使 wait 立即返回
+        if session_id not in cancel_execution_events:
+            cancel_execution_events[session_id] = asyncio.Event()
+        cancel_execution_events[session_id].set()
+
+        # 同时触发 pending_event 使其返回
+        pending_events[session_id].set()
+
+        logger.info(f"[TerminateExecution] 已触发会话 {session_id} 的终止信号")
+        return {"message": "终止请求已发送", "status": "terminating"}
+    else:
+        logger.warning(f"[TerminateExecution] Session {session_id} 没有待处理的事件")
+        return {"message": "没有正在执行的任务", "status": "no_active_task"}
 
 
 @app.get("/api/files/{session_id}")

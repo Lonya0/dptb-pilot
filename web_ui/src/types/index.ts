@@ -104,10 +104,63 @@ export interface CurrentChatSession {
 }
 
 // MCP工具执行模式
-export type ExecutionMode = 'Local' | 'Bohr' | 'None';
+export type ExecutionMode = 'Local' | 'Remote' | 'None';
+
+// 远程机器类型
+export type RemoteMachineType = 'Bohrium' | 'Slurm';
+
+// Bohrium 机器配置
+export interface BohriumConfig {
+  username: string;
+  password: string;
+  project_id: string;
+  image_name?: string;
+  scass_type?: string;
+}
+
+// Slurm 机器配置
+export interface SlurmConfig {
+  remote_root: string;
+  hostname: string;
+  username: string;
+  key_filename: string;
+  number_node: string;
+  gpu_per_node?: string;
+  cpu_per_node?: string;
+  queue_name: string;
+  custom_flags?: string;
+}
+
+// 远程机器配置
+export interface RemoteMachine {
+  id: string;
+  name: string;
+  type: RemoteMachineType;
+  config: BohriumConfig | SlurmConfig;
+}
 
 // 参数修改模式
 export type ModifyMode = 'individual' | 'json';
+
+// 修改参数请求类型
+export interface ModifyParamsRequest {
+  session_id: string;
+  modified_schema: ToolSchema;
+  execution_mode: ExecutionMode;
+  selected_machine_id?: string;
+  remote_machine?: RemoteMachine | null;
+}
+
+// 终止执行请求类型
+export interface TerminateExecutionRequest {
+  session_id: string;
+}
+
+// 终止执行响应类型
+export interface TerminateExecutionResponse {
+  message: string;
+  status: string;
+}
 
 // React应用状态类型
 export interface AppState {

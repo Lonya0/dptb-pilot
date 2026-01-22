@@ -5,7 +5,8 @@ import {
   ChatSession,
   FileInfo,
   ModifyMode,
-  ToolSchema
+  ToolSchema,
+  ModifyParamsRequest
 } from '../types';
 import { apiService, wsService } from '../services/api';
 import { message } from 'antd';
@@ -186,7 +187,8 @@ interface AppContextActions {
   uploadFiles: (files: File[]) => Promise<void>;
   deleteFile: (filename: string) => Promise<void>;
   getCurrentSchema: () => Promise<ToolSchema | null>;
-  modifyParameters: (schema: ToolSchema) => Promise<void>;
+  modifyParameters: (request: ModifyParamsRequest) => Promise<void>;
+  terminateExecution: () => Promise<void>;
   toggleLanguage: () => void;
   switchToChatSession: (chatId: string) => Promise<void>;
 }
@@ -711,11 +713,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     },
 
-    modifyParameters: async (modifiedSchema: any) => {
+    modifyParameters: async (request: ModifyParamsRequest) => {
       if (!state.userId) return;
 
       try {
-        await apiService.modifyParameters(state.userId, modifiedSchema);
+        await apiService.modifyParameters(request);
         // 清除待处理的工具响应
         dispatch({ type: 'SET_PENDING_TOOL_RESPONSE', payload: '' });
       } catch (error) {
@@ -785,6 +787,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const newLang = state.language === 'zh' ? 'en' : 'zh';
       dispatch({ type: 'SET_LANGUAGE', payload: newLang });
       localStorage.setItem('app_language', newLang);
+    },
+
+    terminateExecution: async () => {
+      if (!state.userId) return;
+
+      try {
+        const response = await apiService.terminateExecution({ session_id: state.userId });
+        if (response.status === 'terminating') {
+          message.success('正在终止执行...');
+          // 清除待处理的工具响应
+          dispatch({ type: 'SET_PENDING_TOOL_RESPONSE', payload: '' });
+          // 清除响应状态
+          dispatch({ type: 'SET_RESPONDING', payload: false });
+        } else {
+          message.info(response.message || '没有正在执行的任务');
+        }
+      } catch (error) {
+        dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : '终止执行失败' });
+      }
     },
   };
 

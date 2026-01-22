@@ -12,8 +12,7 @@ import json
 
 # Configuration
 # Assuming script is run from project root or installed as package
-import dptb_pilot.tools
-TOOLS_DIR = os.path.dirname(dptb_pilot.tools.__file__)
+TOOLS_DIR = os.path.join("..", "dptb_pilot", "tools")
 KNOWLEDGE_BASE_DIR = os.path.join(TOOLS_DIR, "data", "deeptb_knowledge")
 REPO_PATH = os.path.join(KNOWLEDGE_BASE_DIR, "repo")
 PAPER_PATH = os.path.join(KNOWLEDGE_BASE_DIR, "paper")
