@@ -70,9 +70,9 @@ def parse_args():
     parser.add_argument(
         "--model",
         type=str,
-        default="fastmcp",
+        default="dp",
         choices=["fastmcp", "test", "dp"],
-        help="Model to use (default: fastmcp), choices: fastmcp, test, dp"
+        help="Model to use (default: dp), choices: fastmcp, test, dp"
     )
     parser.add_argument(
         "--port",
