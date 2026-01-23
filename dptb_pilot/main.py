@@ -15,6 +15,19 @@ from dptb_pilot.core.photon_config import PHOTON_CONFIG, CHARGING_ENABLED
 
 logger = get_logger(__name__)
 
+import shutil
+import sys
+
+def find_npm_command():
+    """
+    跨平台查找 npm 可执行文件
+    """
+    if sys.platform.startswith("win"):
+        return shutil.which("npm.cmd") or shutil.which("npm.exe")
+    else:
+        return shutil.which("npm")
+
+
 def parse_arguments():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(description="Better AIM React 启动程序")
@@ -91,6 +104,11 @@ def parse_arguments():
 
 def start_frontend_server(frontend_port: int = 3000, frontend_host: str = "0.0.0.0", backend_host: str = "localhost", backend_port: int = 8000, debug: bool = False):
     """启动前端开发服务器 (仅在开发模式下)"""
+    npm_cmd = find_npm_command()
+    if not npm_cmd:
+        logger.error("未找到 npm，请确认 Node.js 已安装并已加入 PATH")
+        return False
+
     # 更智能的路径查找：尝试多种可能的位置
     possible_paths = [
         # 1. Standard location: Project root/web_ui
@@ -141,7 +159,7 @@ def start_frontend_server(frontend_port: int = 3000, frontend_host: str = "0.0.0
             logger.info("正在安装前端依赖...")
             try:
                 result = subprocess.run(
-                    ["npm", "install"],
+                    [npm_cmd, "install"],
                     cwd=frontend_path,
                     check=True,
                     capture_output=True,
@@ -176,7 +194,7 @@ def start_frontend_server(frontend_port: int = 3000, frontend_host: str = "0.0.0
         # 使用Popen启动，这样可以在后台运行
         logger.info("执行npm run dev...")
         process = subprocess.Popen(
-            ["npm", "run", "dev"],
+            [npm_cmd, "run", "dev"],
             cwd=frontend_path,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
