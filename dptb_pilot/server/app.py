@@ -159,7 +159,7 @@ def generate_executor_and_storage(
                     'remote_profile': {
                         'email': config.get('username'),
                         'password': config.get('password'),
-                        'program_id': int(config.get('project_id', 0)),
+                        'project_id': int(config.get('project_id', 0)),
                         'input_data': {
                             'image_name': config.get('image_name', 'registry.dp.tech/dptech/dp/native/prod-19853/dpa-mcp:0.0.0'),
                             'job_type': 'container',
@@ -215,7 +215,7 @@ def generate_executor_and_storage(
             'type': 'bohrium',
             'username': config.get('username'),
             'password': config.get('password'),
-            'program_id': int(config.get('project_id', 0))
+            'project_id': int(config.get('project_id', 0))
         }
         logger.info(f"[AutoGenerate] Bohrium Storage 配置已生成")
         logger.info(f"[AutoGenerate] Storage: {json.dumps(storage_config, ensure_ascii=False, indent=2)}")
