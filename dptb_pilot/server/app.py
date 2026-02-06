@@ -159,12 +159,12 @@ def generate_executor_and_storage(
                     'remote_profile': {
                         'email': config.get('username'),
                         'password': config.get('password'),
-                        'project_id': int(config.get('project_id', 0)),
+                        'program_id': int(config.get('project_id', 0)),
                         'input_data': {
-                            'image_name': config.get('image_name', 'registry.dp.tech/dptech/dp/native/prod-19853/dpa-mcp:0.0.0'),
+                            'image_name': config.get('image_name') or 'registry.dp.tech/dptech/dp/native/prod-35271/dptb-pilot-test:0.2',
                             'job_type': 'container',
                             'platform': 'ali',
-                            'scass_type': config.get('scass_type', '1 * NVIDIA V100_32g')
+                            'scass_type': config.get('scass_type') or 'c2_m4_cpu'
                         }
                     }
                 }
@@ -225,13 +225,6 @@ def generate_executor_and_storage(
     logger.info("=" * 80)
 
     return result_schema
-
-
-# 辅助函数 - 历史记录管理已合并到 sessions.json
-# def get_chat_history_file_path... (removed)
-# def load_chat_history... (removed)
-# def save_chat_history... (removed)
-
 
 async def call_agent_async(query: str, runner: Runner, user_id: str, session_id: str) -> AsyncGenerator[Dict[str, Any], None]:
     """与agent异步对话，支持MCP工具拦截"""
@@ -364,11 +357,6 @@ async def login(request: LoginRequest):
             active_agents[session_id] = agent
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"创建Agent失败: {str(e)}")
-
-    # 初始化聊天历史
-    # 初始化聊天历史 - 已移除，现在按需加载 (lazy load by chat_id)
-    # if session_id not in history_pool:
-    #     history_pool[session_id] = load_chat_history(session_id, work_path)
 
     logger.info(f"登录成功，会话ID: {session_id}")
     return {"message": "登录成功", "session_id": session_id}
@@ -603,6 +591,9 @@ async def modify_parameters(request: ModifyParamsRequest):
     logger.info(f"[ModifyParams] 修改前的Schema: {json.dumps(modified_schema, ensure_ascii=False, indent=2)}")
     logger.info("=" * 80)
 
+    # 构建工作目录路径：{work_path}/{session_id}/files（确保是绝对路径）
+    session_files_dir = os.path.abspath(os.path.join(work_path, session_id, "files"))
+
     # 自动生成 Executor 和 Storage 参数
     modified_schema = generate_executor_and_storage(
         execution_mode=request.execution_mode,
@@ -617,9 +608,39 @@ async def modify_parameters(request: ModifyParamsRequest):
     # 提取修改后的参数
     modified_args = extract_arguments_from_schema(modified_schema)
 
+    # 处理路径参数：确保所有路径都是绝对路径
+    properties = modified_schema.get('input_schema', {}).get('properties', {})
+    for param_name, param_info in properties.items():
+        if param_name.endswith('_path') and param_name in modified_args:
+            user_input = modified_args[param_name]
+            if user_input and isinstance(user_input, str):
+                # 确保路径是绝对路径
+                if os.path.isabs(user_input):
+                    # 已经是绝对路径，检查文件是否存在
+                    if os.path.exists(user_input):
+                        logger.info(f"[ModifyParams] 路径参数 {param_name}: 保持绝对路径 {user_input}")
+                    else:
+                        logger.warning(f"[ModifyParams] 路径参数 {param_name}: 绝对路径不存在 {user_input}")
+                else:
+                    # 相对路径，尝试在 session_files_dir 中查找
+                    possible_path = os.path.join(session_files_dir, user_input)
+                    if os.path.exists(possible_path):
+                        modified_args[param_name] = possible_path
+                        logger.info(f"[ModifyParams] 路径参数 {param_name}: 相对路径转绝对路径 {user_input} -> {possible_path}")
+                    else:
+                        # 尝试相对于当前工作目录
+                        cwd_path = os.path.abspath(user_input)
+                        if os.path.exists(cwd_path):
+                            modified_args[param_name] = cwd_path
+                            logger.info(f"[ModifyParams] 路径参数 {param_name}: 使用当前工作目录 {user_input} -> {cwd_path}")
+                        else:
+                            # 文件不存在，但仍然构建预期的绝对路径
+                            modified_args[param_name] = possible_path
+                            logger.warning(f"[ModifyParams] 路径参数 {param_name}: 文件不存在，使用预期路径 {user_input} -> {possible_path}")
+
     logger.info(f"[ModifyParams] 提取后的参数: {modified_args}")
-    logger.info(f"[ModifyParams] Executor 参数: {modified_args.get('Executor')}")
-    logger.info(f"[ModifyParams] Storage 参数: {modified_args.get('Storage')}")
+    logger.info(f"[ModifyParams] Executor 参数: {modified_args.get('executor')}")
+    logger.info(f"[ModifyParams] Storage 参数: {modified_args.get('storage')}")
 
     modified_args_store[session_id] = modified_args
     modified_schema_store[session_id] = modified_schema
