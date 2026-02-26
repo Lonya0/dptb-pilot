@@ -26,6 +26,7 @@ dependencies = [
     "torch-scatter>=2.1.2",
     "httpx[socks]",
     "dptb",
+    "dpdata"
 ]
 
 [tool.uv]
