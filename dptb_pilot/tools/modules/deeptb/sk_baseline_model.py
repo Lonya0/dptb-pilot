@@ -16,8 +16,8 @@ class ModelResult(TypedDict):
     model_path: str
 
 class BandResult(TypedDict):
-    band_structure_file: Path
-    image_file: Path
+    band_structure_file_path: Path
+    image_file_path: Path
 
 @mcp.tool()
 def band_with_baseline_model(
@@ -87,7 +87,7 @@ def band_with_baseline_model(
         
         print(f"Band structure saved to {output_band_img_path}")
 
-    return {"band_structure_file": Path(output_bandstructure_path), "image_file": Path(output_band_img_path)}
+    return {"band_structure_file_path": Path(output_bandstructure_path), "image_file_path": Path(output_band_img_path)}
 
 @mcp.tool()
 def generate_sk_baseline_model(
