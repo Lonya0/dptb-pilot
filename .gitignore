@@ -64,6 +64,10 @@ workspace/**/sessions.json
 .pytest_cache/
 *.egg-info/
 reproduce_*.py
+test_generated_*
+
+# Model
+*.pth
 
 # Logs and temporary files
 *.log
