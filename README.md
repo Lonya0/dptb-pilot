@@ -52,6 +52,7 @@
         ```
 *   **Git**
 *   **DeePTB**: The pilot depends on the [DeePTB](https://github.com/deepmodeling/DeePTB) package, which is automatically installed by `uv`.
+*   **dftio**: If you need full use of this pilot, the `dftio` package need to be installed manually.
 
 ### 1. Installation
 Clone the repository:
