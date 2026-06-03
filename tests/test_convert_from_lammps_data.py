@@ -8,6 +8,6 @@ def test_convert_from_lammps_data_to_vasp():
                              format='vasp')
 
 def test_convert_from_lammps_data_to_abacus():
-    convert_from_lammps_data(Path('resources/relaxed-3.data'),
+    convert_from_lammps_data(Path('resources/relaxed+3.data'),
                              output_name='test_generated_abacus_stru_file',
                              format='abacus')

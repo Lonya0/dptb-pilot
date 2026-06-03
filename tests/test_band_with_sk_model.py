@@ -1,18 +1,37 @@
 from pathlib import Path
 
-from dptb_pilot.tools.modules.deeptb.submodules.band import _band_with_sk_model, _band_gap
+from dptb_pilot.tools.modules.deeptb.submodules.band import _band_predict, _band_gap
 
 MODEL_FILE_PATH = Path('resources/env_corrected.pth')
-STRUCTURE_FILE_PATH, FERMI_LEVEL, N_ATOMS = Path('resources/POSCAR_-3'), -9.22, 200
-# STRUCTURE_FILE_PATH, FERMI_LEVEL, N_ATOMS = Path('resources/10_0.vasp'), -9.2, 40
+MODEL_FILE_PATH = Path('resources/nnsk.best.pth')
+STRUCTURE_FILE_PATH = Path('resources/POSCAR_-3_prim')
+
 
 def test_band_with_sk_model():
     OUTPUT_ROOT_PATH = Path('test_generated_band_with_sk_model')
     OUTPUT_ROOT_PATH.mkdir(exist_ok=True)
-    band_structure_file_path, _ = _band_with_sk_model(model_file_path=MODEL_FILE_PATH,
-                                                      structure_file_path=STRUCTURE_FILE_PATH,
-                                                      work_path=str(OUTPUT_ROOT_PATH)).values()
+    band_structure_file_path, _, fermi_level = _band_predict(model_file_path=MODEL_FILE_PATH,
+                                                             structure_file_path=STRUCTURE_FILE_PATH,
+                                                             nel_atom={"C": 4},
+                                                             kpath="[[0.0,0.0,0.0,50,G],[0.0,0.0,0.5,1,Z]]",
+                                                             work_path=str(OUTPUT_ROOT_PATH)).values()
     band_gap = _band_gap(band_structure_file_path=band_structure_file_path,
-                         fermi_level=FERMI_LEVEL,
-                         n_atoms=N_ATOMS).values()
+                         fermi_level=fermi_level).values()
+    print(band_gap)
+
+
+E3_MODEL_FILE_PATH = Path('resources/e3env.pth')
+OVERLAP_FILE_PATH = Path('resources/-3_overlaps.h5')
+
+
+def test_band_with_e3_model():
+    OUTPUT_ROOT_PATH = Path('test_generated_band_with_e3_model')
+    OUTPUT_ROOT_PATH.mkdir(exist_ok=True)
+    band_structure_file_path, _, fermi_level = _band_predict(model_file_path=E3_MODEL_FILE_PATH,
+                                                             structure_file_path=STRUCTURE_FILE_PATH,
+                                                             nel_atom={"C": 4},
+                                                             kpath="[[0.0,0.0,0.0,50,G],[0.0,0.0,0.5,1,Z]]",
+                                                             work_path=str(OUTPUT_ROOT_PATH)).values()
+    band_gap = _band_gap(band_structure_file_path=band_structure_file_path,
+                         fermi_level=fermi_level).values()
     print(band_gap)
