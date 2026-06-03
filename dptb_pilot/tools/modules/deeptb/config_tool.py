@@ -5,9 +5,8 @@ from pathlib import Path
 from dptb_pilot.tools.init import mcp
 import ast
 
+from dptb_pilot.tools.modules.deeptb.results_unified import ConfigResult
 
-class ConfigResult(TypedDict):
-    config_path: str
 
 def auto_basis(material):
     basis = {}

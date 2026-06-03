@@ -4,8 +4,9 @@ consistent with Yang & Han PRL 1999 definition:
 
 ε = (L - L0) / L0
 """
-
+import os
 from pathlib import Path
+from typing import List
 
 import numpy as np
 from ase.data import atomic_numbers, atomic_masses
@@ -66,7 +67,7 @@ thermo          100
         if relax:
             f.write("""
 min_style       cg
-minimize        1e-6 1e-8 1000 10000
+minimize        1e-12 1e-6 1000 10000
 """)
         else:
             f.write("run 0\n")
@@ -75,15 +76,54 @@ minimize        1e-6 1e-8 1000 10000
 write_data      relaxed.data
 """)
 
-def _generate_uniaxial_strain_input_file(output_root,
-                                         poscar_file,
-                                         strain_list,
-                                         axis='auto',
-                                         target_length=100,
-                                         model_name='model.pb',
-                                         relax_after_strain=True):
+def _generate_uniaxial_strain_structure(output_root,
+                                        poscar_file:Path,
+                                        strain_list:List[float],
+                                        axis='auto',
+                                        target_length=20):
+    OUTPUT_ROOT_PATH = Path(output_root)
+    os.makedirs(OUTPUT_ROOT_PATH, exist_ok=True)
+
+    strain_list = [float(strain) for strain in strain_list]
+
+    atoms = read(poscar_file)
+
+    supercell, axis, _ = build_supercell(atoms,
+                                         axis=axis,
+                                         target_length=target_length)
+
+    L0 = np.linalg.norm(supercell.get_cell()[axis])
+    print(f"Reference length L0 = {L0:.3f} Å")
+
+    poscar_file_paths = []
+
+    for strain in strain_list:
+        strained_atoms = supercell.copy()
+        strained_atoms = apply_uniaxial_strain(
+            strained_atoms, axis, strain
+        )
+
+        # Write POSCAR
+        file_name = str(poscar_file.name).split('.')[0] + f"{strain:+.2f}.vasp"
+        write(OUTPUT_ROOT_PATH / file_name, strained_atoms, format="vasp")
+        poscar_file_paths.append(Path(OUTPUT_ROOT_PATH / file_name))
+
+        print(f"Generated strain {strain:+.2f}%")
+
+    print("All strain structures generated.")
+    return {"poscar_file_paths":poscar_file_paths}
+
+def _generate_uniaxial_strain_lammps_input_file(output_root,
+                                                poscar_file:Path,
+                                                strain_list:List[float],
+                                                axis='auto',
+                                                target_length=20,
+                                                model_name='model.pb',
+                                                relax_after_strain=True):
     OUTPUT_ROOT_PATH = Path(output_root)
     OUTPUT_ROOT_PATH.mkdir(exist_ok=True)
+
+    strain_list = [float(strain) for strain in strain_list]
 
     atoms = read(poscar_file)
 

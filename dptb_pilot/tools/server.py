@@ -27,6 +27,9 @@ def load_tools():
     from dptb_pilot.tools.modules.deeptb.config_tool import generate_deeptb_e3_training_config
     from dptb_pilot.tools.modules.deeptb.sk_baseline_model import band_with_baseline_model, generate_sk_baseline_model
     from dptb_pilot.tools.modules.deeptb.sk_predict import band_with_sk_model
+    from dptb_pilot.tools.modules.deeptb.lammps import run_lammps
+    from dptb_pilot.tools.modules.deeptb.strain import generate_uniaxial_strain_input_file
+    from dptb_pilot.tools.modules.deeptb.negf import run_negf
 
     # Knowledge
     from dptb_pilot.tools.modules.knowledge.mp_tool import search_materials_project, download_mp_structure

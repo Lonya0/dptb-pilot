@@ -1,28 +1,24 @@
-import ast
-import os
-import json
-from typing import Optional, Literal, Dict, Any, TypedDict, Union, List
+import logging
 from pathlib import Path
-import subprocess as sp
-
-from dptb.entrypoints.emp_sk import EmpSK
-from matplotlib import image as mpimg, pyplot as plt
+from typing import List
 
 from dptb_pilot.tools.init import mcp
-from dptb_pilot.tools.modules.util.comm import generate_work_path
+from dptb_pilot.tools.modules.deeptb.results_unified import BandResult, ModelResult
+from dptb_pilot.tools.modules.deeptb.submodules.sk_baseline_model import _band_with_baseline_model, \
+    _generate_sk_baseline_model
 
+log = logging.getLogger(__name__)
 
-class ModelResult(TypedDict):
-    model_path: str
-
-class BandResult(TypedDict):
-    band_structure_file_path: Path
-    image_file_path: Path
 
 @mcp.tool()
 def band_with_baseline_model(
-    structure_file_path: Path,
-    basemodel: str = "poly4"
+        structure_file_path: Path,
+        basemodel: str = "poly4",
+        efermi: float = None,
+        emin: float = None,
+        emax: float = None,
+        get_fermi: bool = False,
+        kmesh: List[int] = None
 ) -> BandResult:
     """
     使用基准模型预测结构能带。
@@ -30,6 +26,11 @@ def band_with_baseline_model(
     参数:
         structure_file_path: 输入的结构文件路径（Path，应通过get_file_path得到）。结构文件应为vasp的格式
         basemodel: 使用的baseline model类型。可选：poly4，poly2
+        efermi: 指定使用的费米能级
+        emin: 能带下限
+        emax: 能带上限
+        get_fermi: 是否自动获取费米能级
+        kmesh: 如果需要自动获取费米能级，使用的k点网格
 
     返回:
         包含能带文件路径的字典。
@@ -39,55 +40,14 @@ def band_with_baseline_model(
         RuntimeError: 写入配置文件失败。
     """
 
-    assert structure_file_path, "输入的结构必须输入"
+    return _band_with_baseline_model(structure_file_path=structure_file_path,
+                                     basemodel=basemodel,
+                                     efermi=efermi,
+                                     emin=emin,
+                                     emax=emax,
+                                     get_fermi=get_fermi,
+                                     kmesh=kmesh)
 
-    work_path = Path(generate_work_path()).absolute()
-
-    import tempfile
-    import shutil
-    
-    # Use a temporary directory for execution
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
-        
-        # Copy structure file to temp dir
-        shutil.copy(structure_file_path, temp_path / structure_file_path.name)
-        
-        # Run dptb command in temp dir
-        cmd = ['dptb', 'run', 'band', '-i', basemodel, '-stu', structure_file_path.name, '-o', 'band_running']
-        result = sp.run(cmd, cwd=temp_dir, capture_output=True, text=True)
-        
-        if result.returncode != 0:
-            raise RuntimeError(f"dptb execution failed:\n{result.stderr}")
-            
-        # Check if result image exists
-        bandstructure_path = temp_path / 'band_running' / 'results' / 'bandstructure.npy'
-        if not bandstructure_path.exists():
-             raise RuntimeError("Band calculation failed.")
-        img_path = temp_path / 'band_running' / 'results' / 'band.png'
-        if not img_path.exists():
-             raise RuntimeError("Band calculation finished but no image generated.")
-             
-        # Copy result back to work_path
-        import time
-        timestamp = int(time.time())
-        bandstructure_filename = f"bandstructure_{timestamp}.npy"
-        output_bandstructure_path = work_path / bandstructure_filename
-        shutil.copy(bandstructure_path, output_bandstructure_path)
-
-        band_img_filename = f"band_{timestamp}.png"
-        output_band_img_path = work_path / band_img_filename
-        
-        plt.figure(figsize=(10, 8))
-        img = mpimg.imread(str(img_path))
-        plt.imshow(img)
-        plt.axis('off')
-        plt.savefig(output_band_img_path, bbox_inches='tight', pad_inches=0.0)
-        plt.close() # Close figure to free memory
-        
-        print(f"Band structure saved to {output_band_img_path}")
-
-    return {"band_structure_file_path": Path(output_bandstructure_path), "image_file_path": Path(output_band_img_path)}
 
 @mcp.tool()
 def generate_sk_baseline_model(
@@ -111,10 +71,6 @@ def generate_sk_baseline_model(
         RuntimeError: 写入配置文件失败。
     """
 
-    common_options = {
-        "basis": ast.literal_eval(basis)
-    }
-
-    EmpSK(common_options, basemodel=basemodel).to_json(outdir=work_path)
-
-    return {"model_path": str(Path(work_path).absolute())}
+    return _generate_sk_baseline_model(basemodel=basemodel,
+                                       basis=basis,
+                                       work_path=work_path)

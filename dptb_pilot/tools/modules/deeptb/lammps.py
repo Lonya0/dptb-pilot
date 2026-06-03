@@ -2,10 +2,8 @@ from pathlib import Path
 from typing import TypedDict
 
 from dptb_pilot.tools.init import mcp
+from dptb_pilot.tools.modules.deeptb.results_unified import RunLammpsResult
 from dptb_pilot.tools.modules.deeptb.submodules.lammps import _run_lammps
-
-class RunLammpsResult(TypedDict):
-    relaxed_system_file_path: Path
 
 @mcp.tool()
 def run_lammps(

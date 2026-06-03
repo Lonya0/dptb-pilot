@@ -115,3 +115,15 @@ def generate_work_path(create: bool = True) -> str:
         os.makedirs(work_path, exist_ok=True)
     
     return work_path
+
+import os
+from contextlib import contextmanager
+
+@contextmanager
+def temporary_chdir(path):
+    original_dir = os.getcwd()  # 保存当前目录
+    try:
+        os.chdir(path)          # 切换到目标目录
+        yield                   # 执行 with 块中的代码
+    finally:
+        os.chdir(original_dir)  # 恢复原目录

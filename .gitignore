@@ -75,3 +75,6 @@ test_generated_*
 
 # Embeding model cache
 /resources/emb_model/huggingface/
+
+# RAG result
+.sqlite3
