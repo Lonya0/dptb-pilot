@@ -77,6 +77,24 @@ def parse_kpath_input(input_str):
     return kpath_config
 
 def get_fermi_level(tbsystem, nel_atom, kmesh=None):
+    """
+    Calculate the Fermi level of a DeePTB ``TBSystem``.
+
+    Parameters
+    ----------
+    tbsystem : TBSystem
+        Initialized DeePTB tight-binding system.
+    nel_atom : dict
+        Mapping from element symbol to valence electron count.
+    kmesh : list, optional
+        Monkhorst-Pack mesh used for Fermi-level integration. Defaults to
+        ``[5, 5, 5]``.
+
+    Returns
+    -------
+    float
+        Calculated Fermi energy stored on the ``TBSystem``.
+    """
 
     if kmesh is None:
         kmesh = [5, 5, 5]
@@ -117,8 +135,21 @@ import numpy as np
 
 def smart_band_gap(eig, pseudo_fermi_level):
     """
-    eig shape:
-        (nk, nbands)
+    Estimate a band gap by selecting valence/conduction bands around a pseudo Fermi level.
+
+    Parameters
+    ----------
+    eig : numpy.ndarray
+        Eigenvalue array with shape ``(nk, nbands)``.
+    pseudo_fermi_level : float
+        Approximate Fermi level used to identify the valence band by band-center
+        ordering.
+
+    Returns
+    -------
+    dict
+        Band-gap information including ``band_gap`` and, when available, VBM/CBM
+        values and band indices.
     """
 
     nk, nb = eig.shape
@@ -161,6 +192,27 @@ def _band_gap(band_structure_file_path: Path,
               fermi_level = None,
               n_atoms = None,
               pseudo_fermi_level: float = None):
+    """
+    Calculate the band gap from a DeePTB band-structure ``.npz`` or ``.npy`` file.
+
+    Parameters
+    ----------
+    band_structure_file_path : Path
+        Path to a saved band-structure file containing an ``eigenvalues`` array.
+    fermi_level : float, optional
+        Explicit Fermi level used to split occupied and unoccupied states.
+    n_atoms : int, optional
+        Number of atoms used by the fallback electron-count Fermi-level estimate.
+    pseudo_fermi_level : float, optional
+        Approximate Fermi level for the band-center based gap estimator. Mutually
+        exclusive with ``fermi_level``.
+
+    Returns
+    -------
+    dict
+        Band-gap dictionary. With pseudo Fermi input it may also include VBM/CBM
+        values and band indices.
+    """
 
     assert not (fermi_level and pseudo_fermi_level), "费米能级与粗费米能级不该同时输入！"
 
@@ -358,7 +410,8 @@ def _band_predict_with_julia(
 
     structure_file_path = structure_file_path.absolute()
     model_file_path = model_file_path.absolute()
-    julia_script_path = julia_script_path.absolute()
+    if julia_script_path:
+        julia_script_path = julia_script_path.absolute()
 
     with tempfile.TemporaryDirectory(dir=_work_path) as temp_dir:
         temp_path = Path(temp_dir)
@@ -491,7 +544,8 @@ def _band_compare(
         dptb_result_path: Path,
         dft_result_path: Path,
         e_min: float = None,
-        e_max: float = None
+        e_max: float = None,
+        match_efermi: bool = False
 ):
     """
     DFT 与 DeePTB 能带对比绘图
@@ -552,7 +606,8 @@ def _band_compare(
     dft_band = dft_data[:, 2:]
 
     # 相对费米能级
-    dft_band = dft_band - dft_efermi
+    if match_efermi:
+        dft_band = dft_band - dft_efermi
 
     # ==========================================================
     # 2. 读取 DPTB 能带
@@ -567,13 +622,14 @@ def _band_compare(
     dptb_band = dptb_result["eigenvalues"]
 
     if "fermi_level" in dptb_result:
-        dptb_fermi = float(
+        dptb_efermi = float(
             np.squeeze(dptb_result["fermi_level"])
         )
     else:
-        dptb_fermi = 0.0
+        dptb_efermi = 0.0
 
-    dptb_band = dptb_band - dptb_fermi
+    if match_efermi:
+        dptb_band = dptb_band - dptb_efermi
 
     # ==========================================================
     # 3. 处理维度
@@ -654,16 +710,33 @@ def _band_compare(
         )
 
     # 费米能级
-    plt.axhline(
-        0,
-        linestyle="--",
-        linewidth=1
-    )
+    if match_efermi:
+        plt.axhline(
+            0,
+            linestyle="--",
+            linewidth=1
+        )
+    else:
+        plt.axhline(
+            dft_efermi,
+            linestyle="--",
+            linewidth=1,
+            color="black",
+            label="DFT $E_F$"
+        )
+        plt.axhline(
+            dptb_efermi,
+            linestyle="--",
+            linewidth=1,
+            color="red",
+            label="DeePTB $E_F$"
+        )
 
     plt.ylim(e_min, e_max)
 
     plt.xlabel("k-path")
-    plt.ylabel("Energy (eV)")
+    ylabel = "$E - E_f$ (eV)" if match_efermi else "Energy (eV)"
+    plt.ylabel(ylabel)
     plt.title("DFT vs DeePTB Band Structure")
 
     plt.legend()

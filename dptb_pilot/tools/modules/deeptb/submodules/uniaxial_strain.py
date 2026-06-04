@@ -81,6 +81,28 @@ def _generate_uniaxial_strain_structure(output_root,
                                         strain_list:List[float],
                                         axis='auto',
                                         target_length=20):
+    """
+    Generate POSCAR/VASP structure files for a list of uniaxial strain values.
+
+    Parameters
+    ----------
+    output_root : str or Path
+        Directory where strained structure files are written.
+    poscar_file : Path
+        Input POSCAR/VASP structure file.
+    strain_list : List[float]
+        Strain percentages to apply. Positive values are tensile and negative
+        values are compressive.
+    axis : str, optional
+        Axis to strain: ``auto``, ``x``, ``y``, or ``z``.
+    target_length : float, optional
+        Target supercell length along the selected axis before applying strain.
+
+    Returns
+    -------
+    dict
+        Dictionary with ``poscar_file_paths`` containing generated structure paths.
+    """
     OUTPUT_ROOT_PATH = Path(output_root)
     os.makedirs(OUTPUT_ROOT_PATH, exist_ok=True)
 
@@ -120,6 +142,32 @@ def _generate_uniaxial_strain_lammps_input_file(output_root,
                                                 target_length=20,
                                                 model_name='model.pb',
                                                 relax_after_strain=True):
+    """
+    Generate strained structures and matching LAMMPS input/data files.
+
+    Parameters
+    ----------
+    output_root : str or Path
+        Root directory where one subdirectory per strain value is created.
+    poscar_file : Path
+        Input POSCAR/VASP structure file.
+    strain_list : List[float]
+        Strain percentages to apply.
+    axis : str, optional
+        Axis to strain: ``auto``, ``x``, ``y``, or ``z``.
+    target_length : float, optional
+        Target supercell length along the selected axis.
+    model_name : str, optional
+        DeepMD model filename referenced in generated LAMMPS input scripts.
+    relax_after_strain : bool, optional
+        Whether generated scripts should relax the strained structure.
+
+    Returns
+    -------
+    dict
+        ``in_lammps_file_paths`` and ``lammps_data_file_paths`` lists for all
+        generated strain tasks.
+    """
     OUTPUT_ROOT_PATH = Path(output_root)
     OUTPUT_ROOT_PATH.mkdir(exist_ok=True)
 

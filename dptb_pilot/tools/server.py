@@ -26,10 +26,33 @@ def load_tools():
     # DeepTB
     from dptb_pilot.tools.modules.deeptb.config_tool import generate_deeptb_e3_training_config
     from dptb_pilot.tools.modules.deeptb.sk_baseline_model import band_with_baseline_model, generate_sk_baseline_model
-    from dptb_pilot.tools.modules.deeptb.sk_predict import band_with_sk_model
+    try:
+        from dptb_pilot.tools.modules.deeptb.sk_predict import band_with_sk_model
+    except ModuleNotFoundError:
+        band_with_sk_model = None
     from dptb_pilot.tools.modules.deeptb.lammps import run_lammps
     from dptb_pilot.tools.modules.deeptb.strain import generate_uniaxial_strain_input_file
     from dptb_pilot.tools.modules.deeptb.negf import run_negf
+    from dptb_pilot.tools.modules.deeptb.predict import (
+        band_compare,
+        band_gap,
+        band_predict,
+        band_predict_with_julia,
+        hamiltonian_predict,
+    )
+    from dptb_pilot.tools.modules.deeptb.abacus import (
+        abacus_band_gap,
+        abacus_band_plot,
+        abacus_get_efermi,
+        run_abacus,
+    )
+    from dptb_pilot.tools.modules.deeptb.convert import (
+        convert_lammps_data_structure,
+        convert_vasp_poscar_structure,
+    )
+    from dptb_pilot.tools.modules.deeptb.dftio import dftio_parse
+    from dptb_pilot.tools.modules.deeptb.model_test import hamiltonian_test
+    from dptb_pilot.tools.modules.deeptb.press_tube import generate_press_tube_lammps_tasks
 
     # Knowledge
     from dptb_pilot.tools.modules.knowledge.mp_tool import search_materials_project, download_mp_structure

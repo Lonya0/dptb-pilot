@@ -5,6 +5,19 @@ from ase import Atoms
 
 
 def detect_axis_by_longest_cell(cell):
+    """
+    Detect the cell-vector index with the largest length.
+
+    Parameters
+    ----------
+    cell : array-like
+        3x3 lattice cell, such as an ASE cell object.
+
+    Returns
+    -------
+    int
+        Index of the longest lattice vector (0, 1, or 2).
+    """
     norms = [np.linalg.norm(cell[i]) for i in range(3)]
     axis = int(np.argmax(norms))
     return axis

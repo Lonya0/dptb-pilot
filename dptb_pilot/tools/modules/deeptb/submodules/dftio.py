@@ -19,6 +19,25 @@ def _dftio_parse_abacus(
         out_density_matrix: bool = False,
         out_eigenvalue: bool = False
     ):
+    """
+    Parse ABACUS raw calculation folders with the Python ``dftio`` parser.
+
+    Parameters
+    ----------
+    work_root : Path
+        Root directory that contains ABACUS calculation data.
+    prefix : str, optional
+        Dataset folder prefix used by ``AbacusParser``.
+    output_dir_name : str, optional
+        Name of the parser output directory.
+    out_hamiltonian, out_overlap, out_density_matrix, out_eigenvalue : bool
+        Select which quantities should be written to HDF5 files.
+
+    Notes
+    -----
+    This helper writes parser outputs through ``AbacusParser.write_hdf5`` and does
+    not currently return the generated paths.
+    """
     work_root = work_root.absolute()
 
     parser = AbacusParser(
@@ -49,21 +68,30 @@ def _dftio_parse(
         out_eigenvalue: bool = False
     ):
     """
-    使用输入的模型预测结构哈密顿量。
+    Convert DFT output folders into DeePTB/dftio training data with the ``dftio`` CLI.
 
-    参数:
-        model_file_name: 使用的model路径。
-        structure_file_name: 输入的结构文件路径。结构文件应为vasp的格式
-        k_points: 想要计算的k点，格式如"[[0,0,0],[0,0,0.5]]"
-        override_overlap: 覆盖的overlap文件，使用后覆盖模型产生的overlap
-        work_path: 哈密顿量信息的保存路径。注意应该是文件夹而不是文件。
+    Parameters
+    ----------
+    work_root : Path
+        Root directory containing raw DFT calculation folders.
+    mode : str, optional
+        Parser backend passed to ``dftio parse``; currently typically ``abacus``.
+    prefix : str, optional
+        Prefix of calculation folders to parse.
+    output_dir_name : str, optional
+        Name of the copied output directory under the generated work path.
+    out_hamiltonian, out_overlap, out_density_matrix, out_eigenvalue : bool
+        Flags controlling which physical quantities are exported.
 
-    返回:
-        包含能带文件路径的字典。
+    Returns
+    -------
+    dict
+        Dictionary with ``output_path`` pointing to the parse result directory.
 
-    抛出:
-        AssumptionError: 某些数据输入不合规。
-        RuntimeError: 写入配置文件失败。
+    Raises
+    ------
+    RuntimeError
+        If the ``dftio parse`` command exits with a non-zero status.
     """
     work_path = Path(generate_work_path()).absolute()
 

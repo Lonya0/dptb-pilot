@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import numpy as np
-from Demos.OpenEncryptedFileRaw import tmp_dir
 from dptb.postprocess.unified import TBSystem
+
 
 def _hamiltonian_predict(
         model_file_path: Path,

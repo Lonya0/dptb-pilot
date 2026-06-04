@@ -44,6 +44,31 @@ def _run_lammps(in_lammps_file_path:Path,
                 lammps_data_file_path:Path,
                 deepmd_model_file_path:Path=None,
                 lmp_command:str='lmp'):
+    """
+    Run a LAMMPS calculation in a temporary directory and collect the relaxed structure.
+
+    Parameters
+    ----------
+    in_lammps_file_path : Path
+        Path to the LAMMPS input script. The script is copied into the execution
+        directory and run as ``in.lammps``.
+    lammps_data_file_path : Path
+        Path to the LAMMPS data file referenced by the input script.
+    deepmd_model_file_path : Path, optional
+        DeepMD model file to copy next to the LAMMPS input files.
+    lmp_command : str, optional
+        LAMMPS executable command, by default ``lmp``.
+
+    Returns
+    -------
+    dict
+        Dictionary with ``relaxed_system_file_path`` pointing to the saved VASP file.
+
+    Raises
+    ------
+    RuntimeError
+        If the LAMMPS command exits with a non-zero status.
+    """
     work_path = Path(generate_work_path()).absolute()
 
     # Use a temporary directory for execution

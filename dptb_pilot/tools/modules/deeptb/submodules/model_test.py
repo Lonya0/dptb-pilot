@@ -10,6 +10,32 @@ def _hamiltonian_test(
         onsite_shift: bool = False,
         clean: bool = True
 ):
+    """
+    Evaluate DeePTB Hamiltonian and overlap prediction errors on a test dataset.
+
+    Parameters
+    ----------
+    model_path : Path
+        Path to a DeePTB model checkpoint or JSON model file.
+    test_dataset_root_path : Path
+        Root directory containing the test dataset folders.
+    test_dataset_prefix : str
+        Prefix used to select dataset entries under ``test_dataset_root_path``.
+    get_overlap : bool, optional
+        Whether the dataset contains overlap matrices and overlap errors should be
+        analyzed.
+    device : str, optional
+        Device used for model evaluation, for example ``cpu`` or ``cuda``.
+    onsite_shift : bool, optional
+        Whether to enable onsite-shift handling in ``HamilLossAnalysis``.
+    clean : bool, optional
+        Whether to remove processed dataset cache directories after evaluation.
+
+    Returns
+    -------
+    dict
+        Nested statistics dictionary from ``HamilLossAnalysis.stats``.
+    """
     from dptb.data import build_dataset
     from dptb.nn import build_model
 

@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import TypedDict, List
 
 from dptb_pilot.tools.init import mcp
-from dptb_pilot.tools.modules.deeptb.submodules.uniaxial_strain import _generate_uniaxial_strain_input_file
+from dptb_pilot.tools.modules.deeptb.submodules.uniaxial_strain import _generate_uniaxial_strain_lammps_input_file
 
 class GenerateUniaxialStrainInputResult(TypedDict):
     in_lammps_file_paths: List[Path]
@@ -103,7 +103,7 @@ def generate_uniaxial_strain_input_file(
     >>> print(f"Generated {len(result['in_lammps_file_paths'])} input files")
     """
 
-    return _generate_uniaxial_strain_input_file(output_root='.',
+    return _generate_uniaxial_strain_lammps_input_file(output_root='.',
                                                 poscar_file=struture_file_path,
                                                 strain_list=strain_list,
                                                 axis=axis,
