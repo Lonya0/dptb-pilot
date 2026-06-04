@@ -54,6 +54,17 @@ def load_tools():
     from dptb_pilot.tools.modules.deeptb.model_test import hamiltonian_test
     from dptb_pilot.tools.modules.deeptb.press_tube import generate_press_tube_lammps_tasks
 
+    # DPNEGF workflow atoms
+    from dptb_pilot.tools.modules.dpnegf.workflow_atoms import (
+        dpnegf_build_supercell,
+        dpnegf_convert_overlap,
+        dpnegf_get_abacus_overlap,
+        dpnegf_prepare_lammps_tasks,
+        dpnegf_prepare_negf_tasks,
+        dpnegf_run_lammps_task,
+        dpnegf_run_negf_task,
+    )
+
     # Knowledge
     from dptb_pilot.tools.modules.knowledge.mp_tool import search_materials_project, download_mp_structure
     from dptb_pilot.tools.modules.knowledge.cod_tool import search_cod_structures, download_cod_structure
